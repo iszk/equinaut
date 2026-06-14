@@ -1,1 +1,1 @@
-# equitnaut
+# equinaut
