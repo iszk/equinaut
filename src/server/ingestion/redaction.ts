@@ -14,18 +14,38 @@ const sensitiveKeys = new Set([
 
 const normalizeKey = (key: string): string => key.toLowerCase().replaceAll(/[_-]/g, "");
 
-export const redactSensitiveValue = (value: unknown): unknown => {
+const redactSensitiveValueWithSeen = (value: unknown, seen: WeakSet<object>): unknown => {
   if (Array.isArray(value)) {
-    return value.map((item) => redactSensitiveValue(item));
+    if (seen.has(value)) {
+      return "[Circular]";
+    }
+    seen.add(value);
+    try {
+      return value.map((item) => redactSensitiveValueWithSeen(item, seen));
+    } finally {
+      seen.delete(value);
+    }
   }
 
   if (value !== null && typeof value === "object") {
-    const output: Record<string, unknown> = {};
-    for (const [key, nestedValue] of Object.entries(value)) {
-      output[key] = sensitiveKeys.has(normalizeKey(key)) ? "[REDACTED]" : redactSensitiveValue(nestedValue);
+    if (seen.has(value)) {
+      return "[Circular]";
     }
-    return output;
+    seen.add(value);
+    try {
+      const output: Record<string, unknown> = {};
+      for (const [key, nestedValue] of Object.entries(value)) {
+        output[key] = sensitiveKeys.has(normalizeKey(key))
+          ? "[REDACTED]"
+          : redactSensitiveValueWithSeen(nestedValue, seen);
+      }
+      return output;
+    } finally {
+      seen.delete(value);
+    }
   }
 
   return value;
 };
+
+export const redactSensitiveValue = (value: unknown): unknown => redactSensitiveValueWithSeen(value, new WeakSet());
