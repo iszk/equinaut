@@ -47,8 +47,10 @@ export type BitbankHttpClient = {
   getTickersJpy(): Promise<BitbankTickersJpyResponse>;
 };
 
+type AvailableBitbankCredentials = Extract<BitbankCredentials, { status: "available" }>;
+
 export type BitbankClientInput = {
-  credentials: BitbankCredentials;
+  credentials: AvailableBitbankCredentials;
   fetchFn?: FetchLike;
   requestTime?: () => string;
   timeWindow?: string;
@@ -63,10 +65,6 @@ export const createBitbankHttpClient = ({
   timeWindow = env.BITBANK_ACCESS_TIME_WINDOW_MS.toString(),
 }: BitbankClientInput): BitbankHttpClient => ({
   async getUserAssets(): Promise<BitbankAssetsResponse> {
-    if (credentials.status === "disabled") {
-      return { success: 0, data: { code: 0 } };
-    }
-
     const requestPathWithQuery = "/v1/user/assets";
     const headers = createBitbankAuthHeaders({
       apiKey: credentials.apiKey,
