@@ -44,6 +44,13 @@ const normalizeBitbankError = (code: number): SourceObservationError => {
   };
 };
 
+const normalizeUnexpectedError = (error: unknown): SourceObservationError => ({
+  code: "bitbank_request_failed",
+  message: error instanceof Error ? error.message : "bitbank request failed",
+  retryable: true,
+  category: "network",
+});
+
 export const collectBitbankSpotAccount = async ({
   credentials,
   client,
@@ -64,43 +71,53 @@ export const collectBitbankSpotAccount = async ({
     };
   }
 
-  const assetsResponse = await client.getUserAssets();
-  if (assetsResponse.success === 0) {
+  try {
+    const assetsResponse = await client.getUserAssets();
+    if (assetsResponse.success === 0) {
+      return {
+        scopeId: "bitbank:spot_account",
+        observedAt: now,
+        status: "failed",
+        error: normalizeBitbankError(assetsResponse.data.code),
+        holdings: [],
+      };
+    }
+
+    const tickersResponse = await client.getTickersJpy();
+    if (tickersResponse.success === 0) {
+      return {
+        scopeId: "bitbank:spot_account",
+        observedAt: now,
+        status: "failed",
+        error: normalizeBitbankError(tickersResponse.data.code),
+        holdings: [],
+      };
+    }
+
+    const mapped = mapBitbankAssetsToHoldings({ assets: assetsResponse.data.assets, tickers: tickersResponse.data });
+    if (mapped.status === "partial") {
+      return {
+        scopeId: "bitbank:spot_account",
+        observedAt: now,
+        status: "partial",
+        error: mapped.error,
+        holdings: [],
+      };
+    }
+
+    return {
+      scopeId: "bitbank:spot_account",
+      observedAt: now,
+      status: "success",
+      holdings: mapped.holdings,
+    };
+  } catch (error) {
     return {
       scopeId: "bitbank:spot_account",
       observedAt: now,
       status: "failed",
-      error: normalizeBitbankError(assetsResponse.data.code),
+      error: normalizeUnexpectedError(error),
       holdings: [],
     };
   }
-
-  const tickersResponse = await client.getTickersJpy();
-  if (tickersResponse.success === 0) {
-    return {
-      scopeId: "bitbank:spot_account",
-      observedAt: now,
-      status: "failed",
-      error: normalizeBitbankError(tickersResponse.data.code),
-      holdings: [],
-    };
-  }
-
-  const mapped = mapBitbankAssetsToHoldings({ assets: assetsResponse.data.assets, tickers: tickersResponse.data });
-  if (mapped.status === "partial") {
-    return {
-      scopeId: "bitbank:spot_account",
-      observedAt: now,
-      status: "partial",
-      error: mapped.error,
-      holdings: [],
-    };
-  }
-
-  return {
-    scopeId: "bitbank:spot_account",
-    observedAt: now,
-    status: "success",
-    holdings: mapped.holdings,
-  };
 };

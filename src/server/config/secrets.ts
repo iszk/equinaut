@@ -16,9 +16,13 @@ type SecretInput = {
 
 export const readSecret = ({ filePath, envValue, label }: SecretInput): SecretValue => {
   if (filePath !== undefined && filePath.trim() !== "") {
-    const value = readFileSync(filePath, "utf8").trim();
-    if (value !== "") {
-      return { status: "available", value };
+    try {
+      const value = readFileSync(filePath, "utf8").trim();
+      if (value !== "") {
+        return { status: "available", value };
+      }
+    } catch {
+      // Fall through to the env value so a broken secret mount does not crash ingestion.
     }
   }
 

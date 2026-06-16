@@ -1,8 +1,8 @@
-import "dotenv/config";
 import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
 
-loadDotenv({ path: ".env.local", override: false });
+loadDotenv({ path: ".env", override: false });
+loadDotenv({ path: ".env.local", override: true });
 
 const envSchema = z.object({
   DATABASE_URL: z.string().optional(),

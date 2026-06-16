@@ -76,4 +76,31 @@ describe("collectBitbankSpotAccount", () => {
       expect(result).not.toHaveProperty("raw");
     }
   });
+
+  it("returns a structured failed result when the HTTP client throws", async () => {
+    const client: BitbankHttpClient = {
+      async getUserAssets() {
+        throw new Error("network unavailable");
+      },
+      async getTickersJpy() {
+        return { success: 1, data: {} };
+      },
+    };
+
+    const result = await collectBitbankSpotAccount({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      client,
+    });
+
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.error).toEqual({
+        code: "bitbank_request_failed",
+        message: "network unavailable",
+        retryable: true,
+        category: "network",
+      });
+      expect(result.holdings).toEqual([]);
+    }
+  });
 });

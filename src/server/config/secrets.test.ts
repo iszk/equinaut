@@ -28,6 +28,16 @@ describe("readSecret", () => {
     expect(result).toEqual({ status: "available", value: "from-env" });
   });
 
+  it("falls back to env values when a configured secret file cannot be read", () => {
+    const result = readSecret({
+      filePath: "/path/to/missing/secret",
+      envValue: "from-env",
+      label: "BITBANK_API_KEY",
+    });
+
+    expect(result).toEqual({ status: "available", value: "from-env" });
+  });
+
   it("returns missing when neither file nor env is set", () => {
     const result = readSecret({ label: "BITBANK_API_KEY" });
 
