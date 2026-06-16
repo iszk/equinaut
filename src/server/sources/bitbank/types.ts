@@ -67,5 +67,5 @@ export type SourceObservationError = {
   rawErrorCode?: string;
   message: string;
   retryable: boolean;
-  category: "configuration" | "api" | "valuation" | "network";
+  category: "configuration" | "api" | "valuation" | "network" | "contract";
 };

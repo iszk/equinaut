@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { collectBitbankSpotAccount } from "./adapter.js";
 import type { BitbankHttpClient } from "./client.js";
 
@@ -99,6 +100,34 @@ describe("collectBitbankSpotAccount", () => {
         message: "network unavailable",
         retryable: true,
         category: "network",
+      });
+      expect(result.holdings).toEqual([]);
+    }
+  });
+
+  it("returns a non-retryable contract error when the HTTP client throws a ZodError", async () => {
+    const client: BitbankHttpClient = {
+      async getUserAssets() {
+        z.object({ success: z.literal(1) }).parse({ success: "unexpected" });
+        return successfulClient.getUserAssets();
+      },
+      async getTickersJpy() {
+        return { success: 1, data: {} };
+      },
+    };
+
+    const result = await collectBitbankSpotAccount({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      client,
+    });
+
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.error).toEqual({
+        code: "bitbank_response_contract_error",
+        message: "bitbank API response did not match the expected schema",
+        retryable: false,
+        category: "contract",
       });
       expect(result.holdings).toEqual([]);
     }

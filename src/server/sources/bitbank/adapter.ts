@@ -1,4 +1,5 @@
 import type { BitbankCredentials } from "../../config/secrets.js";
+import { ZodError } from "zod";
 import type { BitbankHttpClient } from "./client.js";
 import { mapBitbankAssetsToHoldings } from "./mapping.js";
 import type { HoldingSnapshot, SourceObservationError } from "./types.js";
@@ -44,12 +45,23 @@ const normalizeBitbankError = (code: number): SourceObservationError => {
   };
 };
 
-const normalizeUnexpectedError = (error: unknown): SourceObservationError => ({
-  code: "bitbank_request_failed",
-  message: error instanceof Error ? error.message : "bitbank request failed",
-  retryable: true,
-  category: "network",
-});
+const normalizeUnexpectedError = (error: unknown): SourceObservationError => {
+  if (error instanceof ZodError) {
+    return {
+      code: "bitbank_response_contract_error",
+      message: "bitbank API response did not match the expected schema",
+      retryable: false,
+      category: "contract",
+    };
+  }
+
+  return {
+    code: "bitbank_request_failed",
+    message: error instanceof Error ? error.message : "bitbank request failed",
+    retryable: true,
+    category: "network",
+  };
+};
 
 export const collectBitbankSpotAccount = async ({
   credentials,
