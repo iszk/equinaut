@@ -52,17 +52,16 @@ export const loadBitbankCredentials = (env: BitbankCredentialEnv = process.env):
     label: "BITBANK_API_SECRET",
   });
 
-  const missing: string[] = [];
-  if (apiKey.status === "missing") missing.push("BITBANK_API_KEY");
-  if (apiSecret.status === "missing") missing.push("BITBANK_API_SECRET");
-
-  if (missing.length > 0) {
-    return { status: "disabled", reason: "missing bitbank credentials", missing };
+  if (apiKey.status === "missing" || apiSecret.status === "missing") {
+    return {
+      status: "disabled",
+      reason: "missing bitbank credentials",
+      missing: [
+        ...(apiKey.status === "missing" ? ["BITBANK_API_KEY"] : []),
+        ...(apiSecret.status === "missing" ? ["BITBANK_API_SECRET"] : []),
+      ],
+    };
   }
 
-  if (apiKey.status === "available" && apiSecret.status === "available") {
-    return { status: "available", apiKey: apiKey.value, apiSecret: apiSecret.value };
-  }
-
-  return { status: "disabled", reason: "missing bitbank credentials", missing: ["BITBANK_API_KEY", "BITBANK_API_SECRET"] };
+  return { status: "available", apiKey: apiKey.value, apiSecret: apiSecret.value };
 };
