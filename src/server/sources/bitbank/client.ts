@@ -25,6 +25,10 @@ const bitbankTickerSchema = z.object({
   timestamp: z.number(),
 });
 
+const bitbankTickerWithPairSchema = bitbankTickerSchema.extend({
+  pair: z.string(),
+});
+
 const errorResponseSchema = z.object({
   success: z.literal(0),
   data: z.object({ code: z.number() }),
@@ -36,7 +40,12 @@ const assetsResponseSchema = z.union([
 ]);
 
 const tickersJpyResponseSchema = z.union([
-  z.object({ success: z.literal(1), data: z.record(bitbankTickerSchema) }),
+  z
+    .object({ success: z.literal(1), data: z.object({ tickers: z.array(bitbankTickerWithPairSchema) }) })
+    .transform(({ success, data }) => ({
+      success,
+      data: Object.fromEntries(data.tickers.map(({ pair, ...ticker }) => [pair, ticker])),
+    })),
   errorResponseSchema,
 ]);
 
