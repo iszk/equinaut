@@ -17,15 +17,19 @@ export const runBitbankIngestion = async (): Promise<IngestionRunResult> => {
 
   const client = createBitbankHttpClient({ credentials });
   const result = await collectBitbankSpotAccount({ credentials, client });
-  const dbClient = createDbClient();
 
   try {
-    await persistBitbankSpotObservation({
-      driver: createDrizzleIngestionPersistenceDriver(dbClient.db),
-      observation: result,
-    });
-  } finally {
-    await dbClient.close();
+    const dbClient = createDbClient();
+    try {
+      await persistBitbankSpotObservation({
+        driver: createDrizzleIngestionPersistenceDriver(dbClient.db),
+        observation: result,
+      });
+    } finally {
+      await dbClient.close();
+    }
+  } catch {
+    return { status: "failed", message: "bitbank ingestion failed: persistence_error" };
   }
 
   if (result.status === "success") {
