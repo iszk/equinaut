@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, numeric, pgTable, text, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
+import { check, index, jsonb, numeric, pgTable, text, timestamp, uuid, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const sourceAccounts = pgTable(
   "source_accounts",
@@ -13,6 +13,7 @@ export const sourceAccounts = pgTable(
   },
   (table) => ({
     sourceStatusCheck: check("source_accounts_status_check", sql`${table.status} in ('active', 'disabled')`),
+    sourceIdUnique: uniqueIndex("source_accounts_source_id_unique").on(table.sourceId),
   }),
 );
 
@@ -29,6 +30,7 @@ export const observationScopes = pgTable(
   (table) => ({
     scopeStatusCheck: check("observation_scopes_status_check", sql`${table.status} in ('active', 'disabled')`),
     scopeIdIdx: index("observation_scopes_scope_id_idx").on(table.scopeId),
+    sourceScopeUnique: uniqueIndex("observation_scopes_source_scope_unique").on(table.sourceAccountId, table.scopeId),
   }),
 );
 

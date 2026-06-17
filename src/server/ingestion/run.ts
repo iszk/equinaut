@@ -1,6 +1,8 @@
+import { createDbClient } from "../db/index.js";
 import { loadBitbankCredentials } from "../config/secrets.js";
 import { createBitbankHttpClient } from "../sources/bitbank/client.js";
 import { collectBitbankSpotAccount } from "../sources/bitbank/adapter.js";
+import { createDrizzleIngestionPersistenceDriver, persistBitbankSpotObservation } from "./persistence.js";
 
 export type IngestionRunResult = {
   status: "success" | "partial" | "failed";
@@ -15,6 +17,16 @@ export const runBitbankIngestion = async (): Promise<IngestionRunResult> => {
 
   const client = createBitbankHttpClient({ credentials });
   const result = await collectBitbankSpotAccount({ credentials, client });
+  const dbClient = createDbClient();
+
+  try {
+    await persistBitbankSpotObservation({
+      driver: createDrizzleIngestionPersistenceDriver(dbClient.db),
+      observation: result,
+    });
+  } finally {
+    await dbClient.close();
+  }
 
   if (result.status === "success") {
     return { status: "success", message: `bitbank ingestion succeeded: ${result.holdings.length} holdings collected` };
