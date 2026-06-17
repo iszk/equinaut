@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "observation_scopes_source_scope_unique" ON "observation_scopes" USING btree ("source_account_id","scope_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "source_accounts_source_id_unique" ON "source_accounts" USING btree ("source_id");

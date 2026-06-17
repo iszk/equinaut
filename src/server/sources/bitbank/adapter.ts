@@ -10,7 +10,7 @@ type CollectInput = {
   now?: Date;
 };
 
-type ScopeObservationResult =
+export type ScopeObservationResult =
   | {
       scopeId: "bitbank:spot_account";
       observedAt: Date;
