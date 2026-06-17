@@ -53,9 +53,9 @@ Never work directly on the `main` branch. Always create a topic branch.
 - Make changes incrementally. Run tests (if available) to ensure your changes work.
 - Stage your changes using `git add <files>`. Do not blindly run `git add .` if there are untracked junk files.
 - **Commit Messages:** Follow the Conventional Commits specification.
-  - Format: `type(scope): description` (e.g., `feat(auth): add login stub function`)
+  - Format: `type(scope): <日本語の説明>` (e.g., `feat(auth): ログイン処理を追加`)
   - Keep descriptions concise and clear.
-  - コミットメッセージは日本語で書くこと
+  - コミットメッセージの説明文（description）は日本語で書くこと
 
 ## 3. Pushing to GitHub
 - Once the implementation is verified and committed, push the topic branch to the remote repository.
