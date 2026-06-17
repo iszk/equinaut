@@ -65,7 +65,7 @@ Never work directly on the `main` branch. Always create a topic branch.
 ## 4. Creating a Pull Request (PR) via MCP
 After a successful push, you MUST create a Pull Request using the **GitHub MCP Server tools** (do not use raw `gh` commands if MCP is active).
 - **Target Branch:** `main` (or the repository's default branch)
-- **PR Title:** Same as your primary commit message (e.g., `feat(auth): add login stub function`)
+- **PR Title:** Same as your primary commit message (e.g., `feat(auth): ログイン処理を追加`)
 - **PR Description:** 以下の内容を含めて日本語で記述してください
   - どのような変更が行われたか
   - なぜその変更が行われたか
