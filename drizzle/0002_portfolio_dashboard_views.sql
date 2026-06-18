@@ -1,3 +1,5 @@
+CREATE INDEX "scope_observations_latest_success_idx" ON "scope_observations" USING btree ("observation_scope_id","observed_at" DESC,"id" DESC) WHERE "status" = 'success';
+--> statement-breakpoint
 CREATE VIEW "portfolio_latest_assets" AS
 WITH ranked_observations AS (
   SELECT

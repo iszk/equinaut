@@ -70,6 +70,9 @@ export const scopeObservations = pgTable(
   (table) => ({
     statusCheck: check("scope_observations_status_check", sql`${table.status} in ('success', 'partial', 'failed', 'skipped')`),
     scopeObservedIdx: index("scope_observations_scope_observed_idx").on(table.observationScopeId, table.observedAt),
+    scopeLatestSuccessIdx: index("scope_observations_latest_success_idx")
+      .on(table.observationScopeId, table.observedAt.desc(), table.id.desc())
+      .where(sql`${table.status} = 'success'`),
   }),
 );
 

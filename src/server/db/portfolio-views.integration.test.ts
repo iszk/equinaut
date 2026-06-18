@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createDrizzleIngestionPersistenceDriver, persistBitbankSpotObservation } from "../ingestion/persistence.js";
 import type { HoldingSnapshot } from "../sources/bitbank/types.js";
@@ -37,6 +37,20 @@ const holding = (symbol: string, valueJpy: string): HoldingSnapshot => ({
 });
 
 maybeDescribe("portfolio dashboard views integration", () => {
+  it("creates a partial index for latest successful observation lookups", async () => {
+    await withTestDatabase(async ({ db, schemaName }) => {
+      const result = await db.execute<{ indexdef: string }>(sql`
+        SELECT indexdef
+        FROM pg_indexes
+        WHERE schemaname = ${schemaName}
+          AND indexname = 'scope_observations_latest_success_idx'
+      `);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.indexdef).toContain("WHERE (status = 'success'::text)");
+    });
+  });
+
   it("exposes latest assets, value timeseries, and latest allocation for Grafana queries", async () => {
     await withTestDatabase(async ({ db }) => {
       const driver = createDrizzleIngestionPersistenceDriver(db);
