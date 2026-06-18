@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { withTestDatabase } from "../db/test-database.js";
+import { withTestDatabase, isTestDatabaseUrlConfigured } from "../db/test-database.js";
 import { assetSnapshots, ingestionRuns, observationScopes, scopeObservations, sourceAccounts } from "../db/schema.js";
 import { createDrizzleIngestionPersistenceDriver, persistBitbankSpotObservation } from "./persistence.js";
 import type { HoldingSnapshot } from "../sources/bitbank/types.js";
@@ -27,7 +27,7 @@ const jpyHolding: HoldingSnapshot = {
   },
 };
 
-const maybeDescribe = process.env.TEST_DATABASE_URL === undefined ? describe.skip : describe;
+const maybeDescribe = isTestDatabaseUrlConfigured(process.env.TEST_DATABASE_URL) ? describe : describe.skip;
 
 maybeDescribe("persistBitbankSpotObservation integration", () => {
   it("persists successful bitbank observations into an isolated migrated test schema", async () => {

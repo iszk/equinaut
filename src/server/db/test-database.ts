@@ -15,9 +15,17 @@ type TestDatabaseContext = {
   schemaName: string;
 };
 
+type TestSchemaCleanupClient = {
+  unsafe(statement: string): Promise<unknown>;
+  end(): Promise<void>;
+};
+
 const migrationsDirectory = "drizzle";
 
 const createSchemaName = () => `test_${randomBytes(8).toString("hex")}`;
+
+export const isTestDatabaseUrlConfigured = (databaseUrl: string | undefined): databaseUrl is string =>
+  databaseUrl !== undefined && databaseUrl.trim() !== "";
 
 const quoteSchemaLiteral = (schemaName: string) => {
   if (!/^test_[a-f0-9]{16}$/u.test(schemaName)) {
@@ -55,9 +63,17 @@ const migrateTestSchema = async (sql: postgres.Sql, schemaName: string): Promise
   }
 };
 
+export const cleanupTestSchema = async (sql: TestSchemaCleanupClient, schemaName: string): Promise<void> => {
+  try {
+    await sql.unsafe(`DROP SCHEMA IF EXISTS ${quoteSchemaLiteral(schemaName)} CASCADE`);
+  } finally {
+    await sql.end();
+  }
+};
+
 export const withTestDatabase = async <T>(fn: (context: TestDatabaseContext) => Promise<T>): Promise<T> => {
   const databaseUrl = process.env.TEST_DATABASE_URL;
-  if (databaseUrl === undefined || databaseUrl.trim() === "") {
+  if (!isTestDatabaseUrlConfigured(databaseUrl)) {
     throw new Error("TEST_DATABASE_URL is not configured");
   }
 
@@ -72,7 +88,6 @@ export const withTestDatabase = async <T>(fn: (context: TestDatabaseContext) => 
 
     return await fn({ db, schemaName });
   } finally {
-    await sql`DROP SCHEMA IF EXISTS ${sql(schemaName)} CASCADE`;
-    await sql.end();
+    await cleanupTestSchema(sql, schemaName);
   }
 };
