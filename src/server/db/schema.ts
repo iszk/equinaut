@@ -129,6 +129,11 @@ export const portfolioValueTimeseries = pgView("portfolio_value_timeseries", {
 }).existing();
 
 export const portfolioAssetAllocation = pgView("portfolio_asset_allocation", {
+  sourceId: text("source_id").notNull(),
+  sourceAccountId: uuid("source_account_id").notNull(),
+  observationScopeId: uuid("observation_scope_id").notNull(),
+  scopeId: text("scope_id").notNull(),
+  scopeType: text("scope_type").notNull(),
   assetKey: text("asset_key").notNull(),
   assetType: text("asset_type").notNull(),
   symbol: text("symbol").notNull(),

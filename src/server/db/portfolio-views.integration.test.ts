@@ -109,13 +109,28 @@ maybeDescribe("portfolio dashboard views integration", () => {
       ]);
 
       const allocation = await db.select().from(portfolioAssetAllocation).orderBy(asc(portfolioAssetAllocation.assetKey));
-      expect(allocation.map((asset) => ({ assetKey: asset.assetKey, valueJpy: asset.valueJpy, portfolioWeight: asset.portfolioWeight }))).toEqual([
+      expect(
+        allocation.map((asset) => ({
+          sourceId: asset.sourceId,
+          scopeId: asset.scopeId,
+          scopeType: asset.scopeType,
+          assetKey: asset.assetKey,
+          valueJpy: asset.valueJpy,
+          portfolioWeight: asset.portfolioWeight,
+        })),
+      ).toEqual([
         {
+          sourceId: "bitbank",
+          scopeId: "bitbank:spot_account",
+          scopeType: "spot_account",
           assetKey: "bitbank:spot_account:crypto:BTC",
           valueJpy: "3000.000000000000000000",
           portfolioWeight: "0.300000000000000000",
         },
         {
+          sourceId: "bitbank",
+          scopeId: "bitbank:spot_account",
+          scopeType: "spot_account",
           assetKey: "bitbank:spot_account:crypto:ETH",
           valueJpy: "7000.000000000000000000",
           portfolioWeight: "0.700000000000000000",
@@ -124,7 +139,7 @@ maybeDescribe("portfolio dashboard views integration", () => {
     });
   });
 
-  it("keeps value timeseries rows scoped when multiple observation scopes exist", async () => {
+  it("keeps value timeseries and allocation rows scoped when multiple observation scopes exist", async () => {
     await withTestDatabase(async ({ db }) => {
       const observedAt = new Date("2026-06-18T00:00:00.000Z");
       const [sourceAccount] = await db
@@ -188,6 +203,33 @@ maybeDescribe("portfolio dashboard views integration", () => {
       expect(timeseries.map((point) => ({ scopeId: point.scopeId, totalValueJpy: point.totalValueJpy }))).toEqual([
         { scopeId: "bitbank:spot_account", totalValueJpy: "3000.000000000000000000" },
         { scopeId: "bitbank:spot_account:secondary", totalValueJpy: "7000.000000000000000000" },
+      ]);
+
+      const allocation = await db
+        .select()
+        .from(portfolioAssetAllocation)
+        .orderBy(asc(portfolioAssetAllocation.scopeId));
+
+      expect(
+        allocation.map((asset) => ({
+          scopeId: asset.scopeId,
+          assetKey: asset.assetKey,
+          valueJpy: asset.valueJpy,
+          portfolioWeight: asset.portfolioWeight,
+        })),
+      ).toEqual([
+        {
+          scopeId: "bitbank:spot_account",
+          assetKey: "bitbank:spot_account:crypto:BTC",
+          valueJpy: "3000.000000000000000000",
+          portfolioWeight: "1.000000000000000000",
+        },
+        {
+          scopeId: "bitbank:spot_account:secondary",
+          assetKey: "bitbank:spot_account:crypto:ETH",
+          valueJpy: "7000.000000000000000000",
+          portfolioWeight: "1.000000000000000000",
+        },
       ]);
     });
   });

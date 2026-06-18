@@ -63,26 +63,51 @@ GROUP BY
 CREATE VIEW "portfolio_asset_allocation" AS
 WITH asset_totals AS (
   SELECT
+    source_id,
+    source_account_id,
+    observation_scope_id,
+    scope_id,
+    scope_type,
     asset_key,
     asset_type,
     symbol,
     name,
     sum(value_jpy)::numeric(38, 18) AS value_jpy
   FROM "portfolio_latest_assets"
-  GROUP BY asset_key, asset_type, symbol, name
-), portfolio_total AS (
-  SELECT sum(value_jpy)::numeric(38, 18) AS value_jpy
+  GROUP BY
+    source_id,
+    source_account_id,
+    observation_scope_id,
+    scope_id,
+    scope_type,
+    asset_key,
+    asset_type,
+    symbol,
+    name
+), portfolio_totals AS (
+  SELECT
+    source_account_id,
+    observation_scope_id,
+    sum(value_jpy)::numeric(38, 18) AS value_jpy
   FROM asset_totals
+  GROUP BY source_account_id, observation_scope_id
 )
 SELECT
+  asset_totals.source_id,
+  asset_totals.source_account_id,
+  asset_totals.observation_scope_id,
+  asset_totals.scope_id,
+  asset_totals.scope_type,
   asset_totals.asset_key,
   asset_totals.asset_type,
   asset_totals.symbol,
   asset_totals.name,
   asset_totals.value_jpy,
   CASE
-    WHEN portfolio_total.value_jpy = 0 THEN 0::numeric(38, 18)
-    ELSE (asset_totals.value_jpy / portfolio_total.value_jpy)::numeric(38, 18)
+    WHEN portfolio_totals.value_jpy = 0 THEN 0::numeric(38, 18)
+    ELSE (asset_totals.value_jpy / portfolio_totals.value_jpy)::numeric(38, 18)
   END AS portfolio_weight
 FROM asset_totals
-CROSS JOIN portfolio_total;
+JOIN portfolio_totals
+  ON portfolio_totals.source_account_id = asset_totals.source_account_id
+  AND portfolio_totals.observation_scope_id = asset_totals.observation_scope_id;

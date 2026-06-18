@@ -37,14 +37,18 @@ order by observed_at;
 
 ```sql
 select
+  source_id,
+  scope_id,
   symbol,
   value_jpy,
   portfolio_weight
 from portfolio_asset_allocation
+where source_id = 'bitbank'
+  and scope_id = 'bitbank:spot_account'
 order by value_jpy desc;
 ```
 
-`portfolio_weight` is a 0-1 ratio. Format it as percent in Grafana.
+`portfolio_weight` is a 0-1 ratio. Format it as percent in Grafana. Allocation rows are grouped per `source_id` / `scope_id`, so keep those fields in filters or labels when multiple scopes exist.
 
 ## Recommended Grafana database access
 
