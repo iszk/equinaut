@@ -53,6 +53,41 @@ bitbank ingestion succeeded: N holdings collected
 
 credentials が不足している場合、command は sanitized configuration message を出して non-zero exit します。secret は出力しません。
 
+## scheduler で定期実行する
+
+scheduler は YAML 設定ファイルで enabled source と実行間隔を管理します。API key / API secret / `DATABASE_URL` などの secret は設定ファイルには入れず、`.env` または Docker secrets で設定してください。
+
+```bash
+cp config/ingestion.example.yaml config/ingestion.yaml
+npm run ingest:scheduler -- --config config/ingestion.yaml
+```
+
+Docker Compose で動かす場合は、`config/ingestion.yaml` を作成してから scheduler service を起動します。
+
+```bash
+docker compose up -d postgres app scheduler
+docker compose logs -f scheduler
+```
+
+設定例:
+
+```yaml
+scheduler:
+  runOnStart: true
+  defaultIntervalSeconds: 900
+  minIntervalSeconds: 60
+
+sources:
+  - id: bitbank
+    enabled: true
+    intervalSeconds: 900
+```
+
+- `runOnStart` が `true` の場合、起動直後に enabled source を一度実行します。
+- `intervalSeconds` を省略した source は `defaultIntervalSeconds` を使います。
+- 現在対応している source id は `bitbank` です。
+- source の実行に失敗しても scheduler process は継続し、次回 interval で再実行します。
+
 ## 投入結果を確認する
 
 同じ `DATABASE_URL` の database に対して、read-only で次を確認します。

@@ -9,13 +9,15 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "ingest:bitbank": "tsx scripts/ingest.ts bitbank"
+    "ingest:bitbank": "tsx scripts/ingest.ts bitbank",
+    "ingest:scheduler": "tsx scripts/ingest-scheduler.ts"
   },
   "dependencies": {
     "decimal.js": "^10.4.3",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5",
+    "yaml": "^2.9.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

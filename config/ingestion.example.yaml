@@ -1,0 +1,15 @@
+# ingestion scheduler の非 secret 設定。
+# API key / API secret / DATABASE_URL は .env または Docker secrets で設定してください。
+scheduler:
+  # true の場合、scheduler 起動直後に enabled source を一度実行します。
+  runOnStart: true
+  # source 側で intervalSeconds を省略した場合の実行間隔です。
+  defaultIntervalSeconds: 900
+  # 誤設定で短すぎる interval を指定しないための下限です。
+  minIntervalSeconds: 60
+
+sources:
+  - id: bitbank
+    enabled: true
+    # 省略時は scheduler.defaultIntervalSeconds を使います。
+    intervalSeconds: 900
