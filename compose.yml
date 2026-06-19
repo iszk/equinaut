@@ -1,0 +1,50 @@
+services:
+
+  app:
+    restart: unless-stopped
+    image: node:24
+    user: node
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-equinaut}:${POSTGRES_PASSWORD:-equinaut}@postgres:5432/${POSTGRES_DB:-equinaut}"
+      BITBANK_API_KEY: ${BITBANK_API_KEY:-}
+      BITBANK_API_SECRET: ${BITBANK_API_SECRET:-}
+      BITBANK_ACCESS_TIME_WINDOW_MS: ${BITBANK_ACCESS_TIME_WINDOW_MS:-5000}
+    init: true
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sleep infinity
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+    networks:
+      - default
+
+  postgres:
+    restart: unless-stopped
+    image: postgres:18
+    volumes:
+      - pg-data:/var/lib/postgresql
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-equinaut}
+      POSTGRES_DB: ${POSTGRES_DB:-equinaut}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-equinaut}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER:-equinaut}" -d "$${POSTGRES_DB:-equinaut}"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - default
+      - grafana
+
+volumes:
+  pg-data:
+  app_node_modules:
+
+networks:
+  grafana:
+    name: ${GRAFANA_NETWORK:-equinaut_grafana}
