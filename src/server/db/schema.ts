@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, numeric, pgTable, text, timestamp, uuid, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { check, index, jsonb, numeric, pgTable, pgView, text, timestamp, uuid, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const sourceAccounts = pgTable(
   "source_accounts",
@@ -70,6 +70,9 @@ export const scopeObservations = pgTable(
   (table) => ({
     statusCheck: check("scope_observations_status_check", sql`${table.status} in ('success', 'partial', 'failed', 'skipped')`),
     scopeObservedIdx: index("scope_observations_scope_observed_idx").on(table.observationScopeId, table.observedAt),
+    scopeLatestSuccessIdx: index("scope_observations_latest_success_idx")
+      .on(table.observationScopeId, table.observedAt.desc(), table.id.desc())
+      .where(sql`${table.status} = 'success'`),
   }),
 );
 
@@ -94,3 +97,47 @@ export const assetSnapshots = pgTable(
     observationAssetIdx: index("asset_snapshots_observation_asset_idx").on(table.scopeObservationId, table.assetKey),
   }),
 );
+
+export const portfolioLatestAssets = pgView("portfolio_latest_assets", {
+  sourceId: text("source_id").notNull(),
+  sourceAccountId: uuid("source_account_id").notNull(),
+  observationScopeId: uuid("observation_scope_id").notNull(),
+  scopeId: text("scope_id").notNull(),
+  scopeType: text("scope_type").notNull(),
+  scopeObservationId: uuid("scope_observation_id").notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  assetKey: text("asset_key").notNull(),
+  assetType: text("asset_type").notNull(),
+  symbol: text("symbol").notNull(),
+  name: text("name"),
+  quantity: numeric("quantity", { precision: 38, scale: 18 }).notNull(),
+  price: numeric("price", { precision: 38, scale: 18 }).notNull(),
+  priceCurrency: text("price_currency").notNull(),
+  fxToJpy: numeric("fx_to_jpy", { precision: 38, scale: 18 }).notNull(),
+  valueJpy: numeric("value_jpy", { precision: 38, scale: 18 }).notNull(),
+}).existing();
+
+export const portfolioValueTimeseries = pgView("portfolio_value_timeseries", {
+  sourceId: text("source_id").notNull(),
+  sourceAccountId: uuid("source_account_id").notNull(),
+  observationScopeId: uuid("observation_scope_id").notNull(),
+  scopeId: text("scope_id").notNull(),
+  scopeType: text("scope_type").notNull(),
+  scopeObservationId: uuid("scope_observation_id").notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  totalValueJpy: numeric("total_value_jpy", { precision: 38, scale: 18 }).notNull(),
+}).existing();
+
+export const portfolioAssetAllocation = pgView("portfolio_asset_allocation", {
+  sourceId: text("source_id").notNull(),
+  sourceAccountId: uuid("source_account_id").notNull(),
+  observationScopeId: uuid("observation_scope_id").notNull(),
+  scopeId: text("scope_id").notNull(),
+  scopeType: text("scope_type").notNull(),
+  assetKey: text("asset_key").notNull(),
+  assetType: text("asset_type").notNull(),
+  symbol: text("symbol").notNull(),
+  name: text("name"),
+  valueJpy: numeric("value_jpy", { precision: 38, scale: 18 }).notNull(),
+  portfolioWeight: numeric("portfolio_weight", { precision: 38, scale: 18 }).notNull(),
+}).existing();
