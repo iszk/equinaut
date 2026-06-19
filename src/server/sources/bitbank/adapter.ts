@@ -1,5 +1,6 @@
 import type { BitbankCredentials } from "../../config/secrets.js";
 import { ZodError } from "zod";
+import type { ZodIssue } from "zod";
 import type { BitbankHttpClient } from "./client.js";
 import { mapBitbankAssetsToHoldings } from "./mapping.js";
 import type { HoldingSnapshot, SourceObservationError } from "./types.js";
@@ -45,11 +46,28 @@ const normalizeBitbankError = (code: number): SourceObservationError => {
   };
 };
 
+const formatZodIssuePath = (issue: ZodIssue): string => (issue.path.length === 0 ? "response" : issue.path.join("."));
+
+const collectZodIssueMessages = (issues: ZodIssue[]): string[] =>
+  issues.flatMap((issue) => {
+    if (issue.code === "invalid_union") {
+      return issue.unionErrors.flatMap((unionError) => collectZodIssueMessages(unionError.issues));
+    }
+
+    return [`${formatZodIssuePath(issue)}: ${issue.message}`];
+  });
+
+const summarizeZodError = (error: ZodError): string => {
+  const uniqueMessages = [...new Set(collectZodIssueMessages(error.issues))];
+  return uniqueMessages.slice(0, 8).join("; ");
+};
+
 const normalizeUnexpectedError = (error: unknown): SourceObservationError => {
   if (error instanceof ZodError) {
+    const detail = summarizeZodError(error);
     return {
       code: "bitbank_response_contract_error",
-      message: "bitbank API response did not match the expected schema",
+      message: `bitbank API response did not match the expected schema${detail === "" ? "" : `: ${detail}`}`,
       retryable: false,
       category: "contract",
     };

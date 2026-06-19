@@ -125,7 +125,8 @@ describe("collectBitbankSpotAccount", () => {
     if (result.status === "failed") {
       expect(result.error).toEqual({
         code: "bitbank_response_contract_error",
-        message: "bitbank API response did not match the expected schema",
+        message:
+          "bitbank API response did not match the expected schema: success: Invalid literal value, expected 1",
         retryable: false,
         category: "contract",
       });

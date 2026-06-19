@@ -66,6 +66,15 @@ describe("mapBitbankAssetsToHoldings", () => {
     }
   });
 
+  it("skips zero quantity assets without requiring tickers", () => {
+    const result = mapBitbankAssetsToHoldings({
+      assets: [asset({ asset: "jpy", onhand_amount: "0.0000" }), asset({ asset: "btc", onhand_amount: "0.00000000" })],
+      tickers: {},
+    });
+
+    expect(result).toEqual({ status: "success", holdings: [] });
+  });
+
   it("returns partial when a JPY ticker is missing", () => {
     const result = mapBitbankAssetsToHoldings({ assets: [asset({ asset: "eth" })], tickers: {} });
 
