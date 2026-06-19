@@ -11,8 +11,8 @@ export type IngestionRunResult = {
 
 const redactUrlCredentials = (message: string): string =>
   message
-    .replace(/(postgres(?:ql)?:\/\/)[^:\s/@]+:[^@\s]+@/g, "$1[REDACTED]@")
-    .replace(/\b(password|token|api[_-]?key|api[_-]?secret)=([^\s,;&]+)/gi, "$1=[REDACTED]");
+    .replace(/(postgres(?:ql)?:\/\/)[^:\s/@]+:[^@\s]+@/gi, "$1[REDACTED]@")
+    .replace(/\b([A-Z0-9_]*?(?:password|token|api[_-]?key|api[_-]?secret))=([^\s,;&]+)/gi, "$1=[REDACTED]");
 const errorDetail = (error: unknown): string => {
   if (error instanceof Error && error.message.trim() !== "") {
     return redactUrlCredentials(error.message);
