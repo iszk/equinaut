@@ -10,8 +10,8 @@ export type BitbankAsset = {
 };
 
 export type BitbankTicker = {
-  sell: string;
-  buy: string;
+  sell: string | null;
+  buy: string | null;
   high: string;
   low: string;
   last: string;

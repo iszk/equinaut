@@ -16,8 +16,8 @@ const bitbankAssetSchema = z.object({
 });
 
 const bitbankTickerSchema = z.object({
-  sell: z.string(),
-  buy: z.string(),
+  sell: z.string().nullable(),
+  buy: z.string().nullable(),
   high: z.string(),
   low: z.string(),
   last: z.string(),
@@ -41,10 +41,10 @@ const assetsResponseSchema = z.union([
 
 const tickersJpyResponseSchema = z.union([
   z
-    .object({ success: z.literal(1), data: z.object({ tickers: z.array(bitbankTickerWithPairSchema) }) })
+    .object({ success: z.literal(1), data: z.array(bitbankTickerWithPairSchema) })
     .transform(({ success, data }) => ({
       success,
-      data: Object.fromEntries(data.tickers.map(({ pair, ...ticker }) => [pair, ticker])),
+      data: Object.fromEntries(data.map(({ pair, ...ticker }) => [pair, ticker])),
     })),
   errorResponseSchema,
 ]);
