@@ -26,6 +26,11 @@ export const mapBitbankAssetsToHoldings = ({ assets, tickers }: MappingInput): M
   const holdings: HoldingSnapshot[] = [];
 
   for (const asset of assets) {
+    const quantity = new Decimal(asset.onhand_amount);
+    if (quantity.isZero()) {
+      continue;
+    }
+
     const symbol = symbolFor(asset.asset);
     if (asset.asset === "jpy") {
       holdings.push({
