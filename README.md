@@ -18,6 +18,17 @@ npm run typecheck
 npm run db:generate
 ```
 
+## 実データ投入
+
+`.env.local` または deployment environment に `DATABASE_URL` と bitbank credentials を設定し、migration を適用してから ingestion を実行します。
+
+```bash
+npm run db:migrate
+npm run ingest:bitbank
+```
+
+必要な環境変数、file-mounted secret 方式、verification SQL は [docs/ingestion.md](docs/ingestion.md) を参照してください。
+
 Manual bitbank ingestion entrypoint:
 
 ```bash

@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1781593534387,
+      "tag": "0000_bumpy_zemo",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781711366471,
+      "tag": "0001_pink_hairball",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781781556889,
+      "tag": "0002_portfolio_dashboard_views",
+      "breakpoints": true
+    }
+  ]
+}
