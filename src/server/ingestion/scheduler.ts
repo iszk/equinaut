@@ -109,7 +109,10 @@ export const runScheduledIngestion = async ({
           );
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "unknown error";
+        const rawMessage = error instanceof Error ? error.message : "unknown error";
+        const message = rawMessage
+          .replace(/(postgres(?:ql)?:\/\/)[^:\s/@]+:[^@\s]+@/gi, "$1[REDACTED]@")
+          .replace(/\b([A-Z0-9_]*?(?:password|token|api[_-]?key|api[_-]?secret))=([^\s,;&]+)/gi, "$1=[REDACTED]");
         logger.error(`ingestion scheduler source crashed: source=${source.id} message=${message}`);
       } finally {
         sourceRuns += 1;
