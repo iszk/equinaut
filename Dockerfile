@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 # db:migrate と tsx scheduler 実行に devDependencies が必要なため、runtime image にも含めます。
-RUN npm ci
+RUN npm ci && chown -R node:node /app/node_modules
 
 COPY --chown=node:node . .
 
