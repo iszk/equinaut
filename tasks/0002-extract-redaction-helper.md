@@ -1,6 +1,6 @@
 ---
 title: redaction helper を共通化する
-status: wip
+status: done
 ---
 
 # 概要
@@ -28,3 +28,6 @@ PR #12 merge 後の follow-up として起票。scheduler 導入時に `run.ts` 
 
 ## 2026-06-20 04:06 Hermes gpt-5.5
 PR review comment を受け、`Authorization: Basic <token>` のような Bearer 以外の 2 token 形式と `DB_PASSWORD` / `SERVICE_TOKEN` / `EXCHANGE_API_KEY` / `BITBANK_API_SECRET` のような接頭辞付き secret key も redaction できるように修正した。該当 regression test も追加。
+
+## 2026-06-20 05:21 Hermes gpt-5.5
+PR #14 が merge されたことを確認したため close。`redactSensitiveMessage` の共通 helper 化、`run.ts` / `scheduler.ts` からの重複 regex 削除、adapter failure / scheduler log 境界での message redaction、credential header / 接頭辞付き secret key の regression test 追加まで完了した。
