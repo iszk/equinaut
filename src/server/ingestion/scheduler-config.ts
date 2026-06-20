@@ -61,6 +61,9 @@ export const parseSchedulerConfig = (content: string): SchedulerConfig => {
   }
 
   const raw = rawResult.data;
+  if (raw.scheduler.defaultIntervalSeconds < raw.scheduler.minIntervalSeconds) {
+    throw new SchedulerConfigError("defaultIntervalSeconds must be greater than or equal to minIntervalSeconds");
+  }
   const seenSourceIds = new Set<IngestionSourceId>();
   for (const source of raw.sources) {
     if (seenSourceIds.has(source.id)) {
