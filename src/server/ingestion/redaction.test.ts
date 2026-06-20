@@ -73,13 +73,29 @@ describe("redactSensitiveMessage", () => {
     );
   });
 
+  it("redacts prefixed secret key-value fragments", () => {
+    expect(
+      redactSensitiveMessage(
+        "DB_PASSWORD=secret SERVICE_TOKEN=abc EXCHANGE_API_KEY=key BITBANK_API_SECRET=secret",
+      ),
+    ).toBe(
+      "DB_PASSWORD=[REDACTED] SERVICE_TOKEN=[REDACTED] EXCHANGE_API_KEY=[REDACTED] BITBANK_API_SECRET=[REDACTED]",
+    );
+  });
+
   it("redacts common credential header fragments", () => {
     expect(
       redactSensitiveMessage(
-        "Authorization: Bearer abc Cookie=session=secret Set-Cookie: sid=secret ACCESS-KEY=key ACCESS-SIGNATURE=sig ACCESS-REQUEST-TIME=123",
+        "Authorization: Bearer *** Cookie=session=secret Set-Cookie: sid=secret ACCESS-KEY=key ACCESS-SIGNATURE=sig ACCESS-REQUEST-TIME=123",
       ),
     ).toBe(
       "Authorization: [REDACTED] Cookie=[REDACTED] Set-Cookie: [REDACTED] ACCESS-KEY=[REDACTED] ACCESS-SIGNATURE=[REDACTED] ACCESS-REQUEST-TIME=[REDACTED]",
+    );
+  });
+
+  it("redacts non-Bearer authorization schemes without leaking the credential", () => {
+    expect(redactSensitiveMessage("Authorization: Basic abc123 Cookie=session=secret")).toBe(
+      "Authorization: [REDACTED] Cookie=[REDACTED]",
     );
   });
 

@@ -25,3 +25,6 @@ PR #12 merge 後の follow-up として起票。scheduler 導入時に `run.ts` 
 
 ## 2026-06-20 03:56 Hermes gpt-5.5
 実装に着手し、例外メッセージ用の `redactSensitiveMessage` を `src/server/ingestion/redaction.ts` に追加した。`run.ts` と `scheduler.ts` の重複 regex を削除して共通 helper を利用するように変更。レビューで指摘された `Authorization` / `Cookie` / `Set-Cookie` / bitbank access header 系も message redaction 対象に追加し、adapter failure message と scheduler log 境界でも再 redaction するようにした。
+
+## 2026-06-20 04:06 Hermes gpt-5.5
+PR review comment を受け、`Authorization: Basic <token>` のような Bearer 以外の 2 token 形式と `DB_PASSWORD` / `SERVICE_TOKEN` / `EXCHANGE_API_KEY` / `BITBANK_API_SECRET` のような接頭辞付き secret key も redaction できるように修正した。該当 regression test も追加。

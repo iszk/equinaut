@@ -53,9 +53,9 @@ const redactSensitiveValueWithSeen = (value: unknown, seen: WeakSet<object>): un
 export const redactSensitiveValue = (value: unknown): unknown => redactSensitiveValueWithSeen(value, new WeakSet());
 
 const messageSensitiveKeyPattern =
-  "password|token|api[_-]?key|api[_-]?secret|authorization|cookie|set-cookie|access-key|access-signature|access-request-time";
+  "[A-Z0-9_-]*(?:password|token|api[_-]?key|api[_-]?secret)|authorization|cookie|set-cookie|access-key|access-signature|access-request-time";
 
-const messageSecretValuePattern = "(?:Bearer\\s+)?[^\\s,;&]+";
+const messageSecretValuePattern = `[^,;&]+?(?=(?:\\s+\\b(?:${messageSensitiveKeyPattern})\\s*[:=])|[,;&]|$)`;
 
 export const redactSensitiveMessage = (message: string): string =>
   message
