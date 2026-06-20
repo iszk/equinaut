@@ -9,3 +9,6 @@ migrate:
 
 bitbank:
     @docker compose exec app npm run ingest:bitbank
+
+scheduler-logs:
+    @docker compose logs -f scheduler

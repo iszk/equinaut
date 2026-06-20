@@ -8,6 +8,8 @@ services:
       - DATABASE_URL=postgres://${POSTGRES_USER:-equinaut}:${POSTGRES_PASSWORD:-equinaut}@postgres:5432/${POSTGRES_DB:-equinaut}
       - BITBANK_API_KEY=${BITBANK_API_KEY:-}
       - BITBANK_API_SECRET=${BITBANK_API_SECRET:-}
+      - BITBANK_API_KEY_FILE=${BITBANK_API_KEY_FILE:-}
+      - BITBANK_API_SECRET_FILE=${BITBANK_API_SECRET_FILE:-}
       - BITBANK_ACCESS_TIME_WINDOW_MS=${BITBANK_ACCESS_TIME_WINDOW_MS:-5000}
     init: true
     working_dir: /app
@@ -15,6 +17,29 @@ services:
       postgres:
         condition: service_healthy
     command: sleep infinity
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+    networks:
+      - default
+
+  scheduler:
+    restart: unless-stopped
+    image: node:24
+    user: node
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-equinaut}:${POSTGRES_PASSWORD:-equinaut}@postgres:5432/${POSTGRES_DB:-equinaut}
+      - BITBANK_API_KEY=${BITBANK_API_KEY:-}
+      - BITBANK_API_SECRET=${BITBANK_API_SECRET:-}
+      - BITBANK_API_KEY_FILE=${BITBANK_API_KEY_FILE:-}
+      - BITBANK_API_SECRET_FILE=${BITBANK_API_SECRET_FILE:-}
+      - BITBANK_ACCESS_TIME_WINDOW_MS=${BITBANK_ACCESS_TIME_WINDOW_MS:-5000}
+    init: true
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npm run ingest:scheduler -- --config config/ingestion.yaml
     volumes:
       - .:/app
       - app_node_modules:/app/node_modules
