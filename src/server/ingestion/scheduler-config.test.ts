@@ -48,7 +48,20 @@ sources:
     ).toThrow("duplicate ingestion source id: bitbank");
   });
 
-  it("rejects intervals shorter than the configured minimum", () => {
+  it("rejects source intervals shorter than the configured minimum", () => {
+    expect(() =>
+      parseSchedulerConfig(`
+scheduler:
+  defaultIntervalSeconds: 900
+  minIntervalSeconds: 60
+sources:
+  - id: bitbank
+    intervalSeconds: 30
+`),
+    ).toThrow("intervalSeconds must be greater than or equal to minIntervalSeconds");
+  });
+
+  it("rejects default intervals shorter than the configured minimum", () => {
     expect(() =>
       parseSchedulerConfig(`
 scheduler:
@@ -57,7 +70,7 @@ scheduler:
 sources:
   - id: bitbank
 `),
-    ).toThrow("intervalSeconds must be greater than or equal to minIntervalSeconds");
+    ).toThrow("defaultIntervalSeconds must be greater than or equal to minIntervalSeconds");
   });
 
   it("rejects unknown top-level keys so secrets are not silently accepted", () => {

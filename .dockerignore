@@ -1,0 +1,9 @@
+.git
+node_modules
+dist
+coverage
+tmp
+.env*
+!.env.example
+config/*
+!config/ingestion.example.yaml
