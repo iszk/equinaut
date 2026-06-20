@@ -62,9 +62,10 @@ cp config/ingestion.example.yaml config/ingestion.yaml
 npm run ingest:scheduler -- --config config/ingestion.yaml
 ```
 
-Docker Compose で動かす場合は、`config/ingestion.yaml` を作成してから scheduler service を起動します。
+Docker Compose で動かす場合は、`config/ingestion.yaml` を作成してから scheduler service を起動します。scheduler は Docker image として build され、image 起動時に `npm run db:migrate` を実行してから scheduler loop を開始します。source code 全体は bind mount せず、`config/` directory のみ read-only で mount します。
 
 ```bash
+docker compose build scheduler
 docker compose up -d postgres app scheduler
 docker compose logs -f scheduler
 ```
@@ -87,6 +88,7 @@ sources:
 - `intervalSeconds` を省略した source は `defaultIntervalSeconds` を使います。
 - 現在対応している source id は `bitbank` です。
 - source の実行に失敗しても scheduler process は継続し、次回 interval で再実行します。
+- Docker Compose の scheduler は 1 replica 前提です。複数 replica で同時起動すると、起動時 migration が競合する可能性があります。将来 scale する場合は migration 専用 service への分離を検討してください。
 
 ## 投入結果を確認する
 
@@ -121,7 +123,7 @@ order by value_jpy desc;
 
 1. 最新 migration を含む code を deploy します。
 2. 対象環境に `DATABASE_URL` と bitbank credentials を設定します。
-3. deploy / schema update ごとに `npm run db:migrate` を実行します。
+3. Docker Compose の scheduler service では、起動時に `npm run db:migrate` が実行されます。手動運用の場合は scheduler / ingestion 起動前に `npm run db:migrate` を実行してください。
 4. `npm run ingest:bitbank` を手動、または scheduler から実行します。
 5. dashboard views が rows を返すことを確認します。
 6. Grafana には同じ database を read-only role で参照させます。
