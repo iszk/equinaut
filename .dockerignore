@@ -1,8 +1,15 @@
 .git
+.github
 node_modules
 dist
 coverage
 tmp
+docs
+tasks
+*.md
+LICENSE
+AGENTS.md
+Justfile
 .env*
 !.env.example
 config/*
