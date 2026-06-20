@@ -29,7 +29,7 @@ services:
     build:
       context: .
     environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER:***@postgres:5432/${POSTGRES_DB:-equinaut}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-equinaut}:${POSTGRES_PASSWORD:-equinaut}@postgres:5432/${POSTGRES_DB:-equinaut}
       - BITBANK_API_KEY=${BITBANK_API_KEY:-}
       - BITBANK_API_SECRET=${BITBANK_API_SECRET:-}
       - BITBANK_API_KEY_FILE=${BITBANK_API_KEY_FILE:-}
