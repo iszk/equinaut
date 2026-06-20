@@ -71,6 +71,45 @@ describe("runScheduledIngestion", () => {
     expect(logger.info).toHaveBeenCalledWith("ingestion scheduler source succeeded: source=bitbank message=ok");
   });
 
+  it("redacts credentials from source result failures before logging", async () => {
+    const runSource = vi.fn().mockResolvedValue({
+      status: "failed",
+      message: "request failed Authorization: Bearer CREDENTIAL token=CREDENTIAL",
+    });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    await runScheduledIngestion({
+      config,
+      runSource,
+      logger,
+      maxSourceRuns: 1,
+      now: () => new Date("2026-06-20T00:00:00.000Z"),
+      sleep: vi.fn(),
+    });
+
+    expect(logger.error).toHaveBeenCalledWith(
+      "ingestion scheduler source failed: source=bitbank status=failed message=request failed Authorization: [REDACTED] token=[REDACTED]",
+    );
+  });
+
+  it("redacts credentials from crashed source errors before logging", async () => {
+    const runSource = vi.fn().mockRejectedValue(new Error("connect postgres://user:***@db/equinaut apiSecret=CREDENTIAL"));
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    await runScheduledIngestion({
+      config,
+      runSource,
+      logger,
+      maxSourceRuns: 1,
+      now: () => new Date("2026-06-20T00:00:00.000Z"),
+      sleep: vi.fn(),
+    });
+
+    expect(logger.error).toHaveBeenCalledWith(
+      "ingestion scheduler source crashed: source=bitbank message=connect postgres://[REDACTED]@db/equinaut apiSecret=[REDACTED]",
+    );
+  });
+
   it("schedules the next run from completion time instead of start time", async () => {
     const runSource = vi.fn().mockResolvedValue({ status: "success", message: "ok" });
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };

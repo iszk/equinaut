@@ -3,19 +3,16 @@ import { loadBitbankCredentials } from "../config/secrets.js";
 import { createBitbankHttpClient } from "../sources/bitbank/client.js";
 import { collectBitbankSpotAccount } from "../sources/bitbank/adapter.js";
 import { createDrizzleIngestionPersistenceDriver, persistBitbankSpotObservation } from "./persistence.js";
+import { redactSensitiveMessage } from "./redaction.js";
 
 export type IngestionRunResult = {
   status: "success" | "partial" | "failed";
   message: string;
 };
 
-const redactUrlCredentials = (message: string): string =>
-  message
-    .replace(/(postgres(?:ql)?:\/\/)[^:\s/@]+:[^@\s]+@/gi, "$1[REDACTED]@")
-    .replace(/\b([A-Z0-9_]*?(?:password|token|api[_-]?key|api[_-]?secret))=([^\s,;&]+)/gi, "$1=[REDACTED]");
 const errorDetail = (error: unknown): string => {
   if (error instanceof Error && error.message.trim() !== "") {
-    return redactUrlCredentials(error.message);
+    return redactSensitiveMessage(error.message);
   }
 
   return "unknown error";
@@ -48,5 +45,8 @@ export const runBitbankIngestion = async (): Promise<IngestionRunResult> => {
     return { status: "success", message: `bitbank ingestion succeeded: ${result.holdings.length} holdings collected` };
   }
 
-  return { status: result.status, message: `bitbank ingestion ${result.status}: ${result.error.code} - ${result.error.message}` };
+  return {
+    status: result.status,
+    message: `bitbank ingestion ${result.status}: ${result.error.code} - ${redactSensitiveMessage(result.error.message)}`,
+  };
 };

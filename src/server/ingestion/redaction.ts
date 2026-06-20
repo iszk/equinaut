@@ -51,3 +51,16 @@ const redactSensitiveValueWithSeen = (value: unknown, seen: WeakSet<object>): un
 };
 
 export const redactSensitiveValue = (value: unknown): unknown => redactSensitiveValueWithSeen(value, new WeakSet());
+
+const messageSensitiveKeyPattern =
+  "password|token|api[_-]?key|api[_-]?secret|authorization|cookie|set-cookie|access-key|access-signature|access-request-time";
+
+const messageSecretValuePattern = "(?:Bearer\\s+)?[^\\s,;&]+";
+
+export const redactSensitiveMessage = (message: string): string =>
+  message
+    .replace(/(postgres(?:ql)?:\/\/)[^:\s/@]+:[^@\s]+@/gi, "$1[REDACTED]@")
+    .replace(
+      new RegExp(`\\b(${messageSensitiveKeyPattern})(\\s*[:=]\\s*)${messageSecretValuePattern}`, "gi"),
+      "$1$2[REDACTED]",
+    );

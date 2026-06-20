@@ -1,5 +1,6 @@
 import { runBitbankIngestion } from "./run.js";
 import type { IngestionRunResult } from "./run.js";
+import { redactSensitiveMessage } from "./redaction.js";
 import type { IngestionSourceId, SchedulerConfig, SchedulerSourceConfig } from "./scheduler-config.js";
 
 export type SchedulerLogger = {
@@ -102,17 +103,15 @@ export const runScheduledIngestion = async ({
       try {
         const result = await runSource(source.id);
         if (result.status === "success") {
-          logger.info(`ingestion scheduler source succeeded: source=${source.id} message=${result.message}`);
+          logger.info(`ingestion scheduler source succeeded: source=${source.id} message=${redactSensitiveMessage(result.message)}`);
         } else {
           logger.error(
-            `ingestion scheduler source failed: source=${source.id} status=${result.status} message=${result.message}`,
+            `ingestion scheduler source failed: source=${source.id} status=${result.status} message=${redactSensitiveMessage(result.message)}`,
           );
         }
       } catch (error) {
         const rawMessage = error instanceof Error ? error.message : "unknown error";
-        const message = rawMessage
-          .replace(/(postgres(?:ql)?:\/\/)[^:\s/@]+:[^@\s]+@/gi, "$1[REDACTED]@")
-          .replace(/\b([A-Z0-9_]*?(?:password|token|api[_-]?key|api[_-]?secret))=([^\s,;&]+)/gi, "$1=[REDACTED]");
+        const message = redactSensitiveMessage(rawMessage);
         logger.error(`ingestion scheduler source crashed: source=${source.id} message=${message}`);
       } finally {
         sourceRuns += 1;
