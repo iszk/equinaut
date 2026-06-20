@@ -100,4 +100,25 @@ describe("runBitbankIngestion", () => {
         "bitbank ingestion failed: bitbank_response_contract_error - bitbank API response did not match the expected schema: data.15.sell: Expected string, received null",
     });
   });
+
+  it("redacts credentials from adapter error details", async () => {
+    collectBitbankSpotAccount.mockResolvedValue({
+      scopeId: "bitbank:spot_account",
+      observedAt: new Date("2026-06-17T12:34:56.000Z"),
+      status: "failed",
+      error: {
+        code: "bitbank_network_error",
+        message: "request failed Authorization: Bearer CREDENTIAL Cookie=session=CREDENTIAL apiKey=CREDENTIAL",
+        retryable: true,
+        category: "network",
+      },
+      holdings: [],
+    });
+
+    await expect(runBitbankIngestion()).resolves.toEqual({
+      status: "failed",
+      message:
+        "bitbank ingestion failed: bitbank_network_error - request failed Authorization: [REDACTED] Cookie=[REDACTED] apiKey=[REDACTED]",
+    });
+  });
 });
