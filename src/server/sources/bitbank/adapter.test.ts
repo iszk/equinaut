@@ -56,6 +56,55 @@ describe("collectBitbankSpotAccount", () => {
     }
   });
 
+  it("preserves successfully mapped holdings when a later asset is missing its ticker", async () => {
+    const client: BitbankHttpClient = {
+      async getUserAssets() {
+        return {
+          success: 1,
+          data: {
+            assets: [
+              {
+                asset: "jpy",
+                amount_precision: 4,
+                onhand_amount: "1000",
+                free_amount: "1000",
+                locked_amount: "0",
+                withdrawing_amount: "0",
+                stop_deposit: false,
+                stop_withdrawal: false,
+              },
+              {
+                asset: "btc",
+                amount_precision: 8,
+                onhand_amount: "0.1",
+                free_amount: "0.1",
+                locked_amount: "0",
+                withdrawing_amount: "0",
+                stop_deposit: false,
+                stop_withdrawal: false,
+              },
+            ],
+          },
+        };
+      },
+      async getTickersJpy() {
+        return { success: 1, data: {} };
+      },
+    };
+
+    const result = await collectBitbankSpotAccount({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      client,
+    });
+
+    expect(result.status).toBe("partial");
+    if (result.status === "partial") {
+      expect(result.error).toMatchObject({ code: "missing_ticker", retryable: false, category: "valuation" });
+      expect(result.holdings).toHaveLength(1);
+      expect(result.holdings[0]?.assetKey).toBe("bitbank:spot_account:cash:JPY");
+    }
+  });
+
   it("normalizes API errors without storing raw body", async () => {
     const client: BitbankHttpClient = {
       async getUserAssets() {

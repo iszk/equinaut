@@ -21,7 +21,14 @@ export type ScopeObservationResult =
   | {
       scopeId: "bitbank:spot_account";
       observedAt: Date;
-      status: "partial" | "failed";
+      status: "partial";
+      error: SourceObservationError;
+      holdings: HoldingSnapshot[];
+    }
+  | {
+      scopeId: "bitbank:spot_account";
+      observedAt: Date;
+      status: "failed";
       error: SourceObservationError;
       holdings: [];
     };
@@ -131,7 +138,7 @@ export const collectBitbankSpotAccount = async ({
         observedAt: now,
         status: "partial",
         error: mapped.error,
-        holdings: [],
+        holdings: mapped.holdings,
       };
     }
 

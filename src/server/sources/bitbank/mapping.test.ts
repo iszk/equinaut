@@ -89,4 +89,18 @@ describe("mapBitbankAssetsToHoldings", () => {
       holdings: [],
     });
   });
+
+  it("keeps holdings mapped before a later missing ticker partial result", () => {
+    const result = mapBitbankAssetsToHoldings({
+      assets: [asset({ asset: "jpy", onhand_amount: "1234" }), asset({ asset: "eth", onhand_amount: "0.5" })],
+      tickers: {},
+    });
+
+    expect(result.status).toBe("partial");
+    if (result.status === "partial") {
+      expect(result.error).toMatchObject({ code: "missing_ticker", message: "Missing JPY ticker for ETH" });
+      expect(result.holdings).toHaveLength(1);
+      expect(result.holdings[0]?.assetKey).toBe("bitbank:spot_account:cash:JPY");
+    }
+  });
 });

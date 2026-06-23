@@ -114,7 +114,7 @@ export const persistBitbankSpotObservation = async ({
           }),
     });
 
-    if (observation.status === "success" && observation.holdings.length > 0) {
+    if (observation.status !== "failed" && observation.holdings.length > 0) {
       await tx.createAssetSnapshots({ scopeObservationId: scopeObservation.id, holdings: observation.holdings });
     }
   });
