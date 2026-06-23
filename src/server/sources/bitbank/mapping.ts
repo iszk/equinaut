@@ -8,7 +8,7 @@ type MappingInput = {
 
 type MappingResult =
   | { status: "success"; holdings: HoldingSnapshot[] }
-  | { status: "partial"; error: SourceObservationError; holdings: [] };
+  | { status: "partial"; error: SourceObservationError; holdings: HoldingSnapshot[] };
 
 const symbolFor = (asset: string): string => asset.toUpperCase();
 
@@ -58,7 +58,7 @@ export const mapBitbankAssetsToHoldings = ({ assets, tickers }: MappingInput): M
           retryable: false,
           category: "valuation",
         },
-        holdings: [],
+        holdings,
       };
     }
 

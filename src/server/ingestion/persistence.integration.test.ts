@@ -1,7 +1,14 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { withTestDatabase, isTestDatabaseUrlConfigured } from "../db/test-database.js";
-import { assetSnapshots, ingestionRuns, observationScopes, scopeObservations, sourceAccounts } from "../db/schema.js";
+import {
+  assetSnapshots,
+  ingestionRuns,
+  observationScopes,
+  portfolioLatestAssets,
+  scopeObservations,
+  sourceAccounts,
+} from "../db/schema.js";
 import { createDrizzleIngestionPersistenceDriver, persistBitbankSpotObservation } from "./persistence.js";
 import type { HoldingSnapshot } from "../sources/bitbank/types.js";
 
@@ -94,6 +101,51 @@ maybeDescribe("persistBitbankSpotObservation integration", () => {
       await expect(db.select().from(ingestionRuns)).resolves.toHaveLength(2);
       await expect(db.select().from(scopeObservations)).resolves.toHaveLength(2);
       await expect(db.select().from(assetSnapshots)).resolves.toHaveLength(2);
+    });
+  });
+
+  it("persists partial observation snapshots without exposing them as latest portfolio assets", async () => {
+    await withTestDatabase(async ({ db }) => {
+      const driver = createDrizzleIngestionPersistenceDriver(db);
+
+      await persistBitbankSpotObservation({
+        driver,
+        observation: {
+          scopeId: "bitbank:spot_account",
+          observedAt,
+          status: "success",
+          holdings: [jpyHolding],
+        },
+      });
+
+      await persistBitbankSpotObservation({
+        driver,
+        observation: {
+          scopeId: "bitbank:spot_account",
+          observedAt: new Date("2026-06-17T12:35:56.000Z"),
+          status: "partial",
+          error: {
+            code: "missing_ticker",
+            message: "Missing JPY ticker for BTC",
+            retryable: false,
+            category: "valuation",
+          },
+          holdings: [{ ...jpyHolding, quantity: "2000", valueJpy: "2000" }],
+        },
+      });
+
+      const runs = await db.select().from(ingestionRuns);
+      expect(runs.map((run) => run.status)).toEqual(["success", "partial"]);
+      expect(runs[1]).toMatchObject({ status: "partial", errorCode: "missing_ticker" });
+
+      const observations = await db.select().from(scopeObservations);
+      expect(observations.map((observation) => observation.status)).toEqual(["success", "partial"]);
+      expect(observations[1]).toMatchObject({ status: "partial", errorCode: "missing_ticker", retryable: false });
+
+      await expect(db.select().from(assetSnapshots)).resolves.toHaveLength(2);
+
+      const [latestAsset] = await db.select().from(portfolioLatestAssets);
+      expect(latestAsset).toMatchObject({ assetKey: jpyHolding.assetKey, symbol: "JPY", valueJpy: "1000.000000000000000000" });
     });
   });
 });

@@ -81,7 +81,7 @@ describe("persistBitbankSpotObservation", () => {
     ]);
   });
 
-  it("persists partial observation errors without asset snapshots", async () => {
+  it("persists partial observation errors with successfully mapped asset snapshots", async () => {
     const { calls, driver } = createRecordingDriver();
 
     await persistBitbankSpotObservation({
@@ -97,7 +97,7 @@ describe("persistBitbankSpotObservation", () => {
           retryable: false,
           category: "valuation",
         },
-        holdings: [],
+        holdings: [jpyHolding],
       },
     });
 
@@ -107,6 +107,7 @@ describe("persistBitbankSpotObservation", () => {
       "upsertObservationScope:source-account-id:bitbank:spot_account:spot_account",
       "createIngestionRun:source-account-id:partial:missing_ticker",
       "createScopeObservation:run-id:scope-id:partial:2026-06-17T12:34:56.000Z:missing_ticker:raw-1:false",
+      "createAssetSnapshots:observation-id:bitbank:spot_account:cash:JPY",
     ]);
   });
 
