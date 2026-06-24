@@ -12,5 +12,5 @@ datasources:
       password: ${EQUINAUT_GRAFANA_READER_PASSWORD}
     jsonData:
       sslmode: disable
-      postgresVersion: 1600
+      postgresVersion: 1800
       timescaledb: false
