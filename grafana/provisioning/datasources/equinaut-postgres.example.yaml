@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: Equinaut PostgreSQL
+    uid: equinaut-postgres
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: equinaut
+    user: reader
+    secureJsonData:
+      password: ${EQUINAUT_GRAFANA_READER_PASSWORD}
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1800
+      timescaledb: false
