@@ -1,7 +1,6 @@
 ---
+title: 既存 Grafana 向け portfolio dashboard を追加する
 status: done
-created_at: 2026-06-24
-completed_at: 2026-06-24
 ---
 
 # 既存 Grafana 向け portfolio dashboard を追加する
