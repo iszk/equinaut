@@ -6,7 +6,8 @@
 
 追加する成果物は次の通りです。
 
-- `grafana/dashboards/portfolio-overview.json`: import 可能な dashboard JSON
+- `grafana/dashboards/portfolio-overview.json`: portfolio overview 用の import 可能な dashboard JSON
+- `grafana/dashboards/ingestion-health.json`: ingestion health / run history 用の import 可能な dashboard JSON
 - `grafana/queries/*.sql`: dashboard panel で使う SQL
 - `grafana/provisioning/datasources/equinaut-postgres.example.yaml`: datasource provisioning 例
 - `grafana/provisioning/dashboards/equinaut.example.yaml`: dashboard provisioning 例
@@ -19,6 +20,9 @@
   - `portfolio_latest_assets`
   - `portfolio_value_timeseries`
   - `portfolio_asset_allocation`
+  - `ingestion_observation_history`
+  - `ingestion_latest_status`
+  - `ingestion_recent_errors`
 
 `portfolio_latest_allocation` という view は存在しません。
 
@@ -45,7 +49,7 @@ Grafana UI から import する場合:
 
 1. Grafana 側に UID `equinaut-postgres` の PostgreSQL datasource を作成しておきます。
 2. Grafana の `Dashboards` → `New` → `Import` を開きます。
-3. `grafana/dashboards/portfolio-overview.json` を upload します。
+3. `grafana/dashboards/portfolio-overview.json` または `grafana/dashboards/ingestion-health.json` を upload します。
 4. Folder は `Equinaut` など、既存 dashboard と分離できる場所を選びます。
 5. 初回表示が空の場合は、dashboard 上部の `Source` / `Scope` variable を実データに合わせて選び直してください。
 
@@ -53,25 +57,45 @@ provisioning で管理する場合は、dashboard JSON を既存 Grafana の das
 
 ## Panels
 
-### 最新ポートフォリオ評価額
+### Portfolio overview
+
+#### 最新ポートフォリオ評価額
 
 `portfolio_latest_assets` から、選択中 source / scope の最新 successful observation に含まれる `value_jpy` を合計して表示します。
 
-### ポートフォリオ評価額の推移
+#### ポートフォリオ評価額の推移
 
 `portfolio_value_timeseries` を time series として表示します。複数 source / scope を扱う場合に備えて、series label は `source_id / scope_id` です。
 
-### 資産配分
+#### 資産配分
 
 `portfolio_asset_allocation` を pie chart として表示します。`portfolio_weight` は 0-1 ratio なので、Grafana では percent unit で表示します。
 
-### 最新保有資産
+#### 最新保有資産
 
 `portfolio_latest_assets` を table として表示します。`quantity`, `price`, `value_jpy`, `observed_at` を確認できます。
 
-### 最新 successful observation
+#### 最新 successful observation
 
 `portfolio_latest_assets` から、source / scope ごとの最新 successful observation に紐づく asset snapshot 時刻を表示します。現行 view だけを使うため、asset snapshot がない observation はこの panel には出ません。
+
+### Ingestion health
+
+#### 最新 ingestion status
+
+`ingestion_latest_status` から、source / scope ごとの最新 observation status を表示します。`success`, `partial`, `failed`, `skipped` の状態、error code、retryable、最後に成功した時刻を確認できます。
+
+#### status 件数推移
+
+`ingestion_observation_history` を time series として表示します。Grafana の `$__timeGroupAlias` / `$__interval` で bucket 化し、status ごとの発生件数を見るための panel です。portfolio value には使いません。
+
+#### recent partial / failed
+
+`ingestion_recent_errors` から、直近の `partial` / `failed` を表示します。error detail が欠落した observation も状態確認のため表示します。error message は ingestion の保存境界で redaction 済みの値だけを保存・表示する前提で、DB 保存前に secret を含む message を必ず redaction してください。
+
+#### run history
+
+`ingestion_observation_history` から、直近の observation 履歴を table 表示します。資産額が更新されていないときに、いつどの source / scope が失敗したか確認する用途です。
 
 ## SQL
 
@@ -82,6 +106,10 @@ Panel の SQL は `grafana/queries/` に分離してあります。Grafana dashb
 - `portfolio-value-timeseries.sql`
 - `asset-allocation.sql`
 - `source-freshness.sql`
+- `ingestion-latest-status.sql`
+- `ingestion-status-timeseries.sql`
+- `ingestion-recent-errors.sql`
+- `ingestion-run-history.sql`
 
 ## read-only 権限
 
@@ -92,7 +120,10 @@ grant usage on schema public to reader;
 grant select on
   portfolio_latest_assets,
   portfolio_value_timeseries,
-  portfolio_asset_allocation
+  portfolio_asset_allocation,
+  ingestion_observation_history,
+  ingestion_latest_status,
+  ingestion_recent_errors
 to reader;
 ```
 
