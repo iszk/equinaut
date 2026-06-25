@@ -37,17 +37,139 @@ const holding = (symbol: string, valueJpy: string): HoldingSnapshot => ({
 });
 
 maybeDescribe("portfolio dashboard views integration", () => {
-  it("creates a partial index for latest successful observation lookups", async () => {
+  it("creates indexes for latest observation lookups", async () => {
     await withTestDatabase(async ({ db, schemaName }) => {
-      const result = await db.execute<{ indexdef: string }>(sql`
+      const successIndex = await db.execute<{ indexdef: string }>(sql`
         SELECT indexdef
         FROM pg_indexes
         WHERE schemaname = ${schemaName}
           AND indexname = 'scope_observations_latest_success_idx'
       `);
 
-      expect(result).toHaveLength(1);
-      expect(result[0]?.indexdef).toContain("WHERE (status = 'success'::text)");
+      expect(successIndex).toHaveLength(1);
+      expect(successIndex[0]?.indexdef).toContain("WHERE (status = 'success'::text)");
+
+      const latestIndex = await db.execute<{ indexdef: string }>(sql`
+        SELECT indexdef
+        FROM pg_indexes
+        WHERE schemaname = ${schemaName}
+          AND indexname = 'scope_observations_latest_idx'
+      `);
+
+      expect(latestIndex).toHaveLength(1);
+      expect(latestIndex[0]?.indexdef).toContain("observed_at DESC");
+    });
+  });
+
+  it("exposes ingestion health views for Grafana run history queries", async () => {
+    await withTestDatabase(async ({ db }) => {
+      const [sourceAccount] = await db
+        .insert(sourceAccounts)
+        .values({ sourceId: "bitbank", displayName: "bitbank" })
+        .returning({ id: sourceAccounts.id });
+      if (sourceAccount === undefined) {
+        throw new Error("source account insert did not return an id");
+      }
+
+      const [observationScope] = await db
+        .insert(observationScopes)
+        .values({ sourceAccountId: sourceAccount.id, scopeId: "bitbank:spot_account", scopeType: "spot_account" })
+        .returning({ id: observationScopes.id });
+      if (observationScope === undefined) {
+        throw new Error("observation scope insert did not return an id");
+      }
+
+      const observations: { status: "success" | "partial" | "failed"; observedAt: Date; errorCode?: string; errorMessage?: string; retryable?: boolean }[] = [
+        { status: "success", observedAt: new Date("2026-06-18T00:00:00.000Z") },
+        {
+          status: "partial",
+          observedAt: new Date("2026-06-18T01:00:00.000Z"),
+          errorCode: "missing_ticker",
+          errorMessage: "Missing JPY ticker for ETH",
+          retryable: false,
+        },
+        {
+          status: "failed",
+          observedAt: new Date("2026-06-18T02:00:00.000Z"),
+          errorCode: "network_error",
+          errorMessage: "bitbank API request failed",
+          retryable: true,
+        },
+        {
+          status: "failed",
+          observedAt: new Date("2026-06-18T03:00:00.000Z"),
+          retryable: true,
+        },
+      ];
+
+      for (const observation of observations) {
+        const [ingestionRun] = await db
+          .insert(ingestionRuns)
+          .values({
+            sourceAccountId: sourceAccount.id,
+            status: observation.status,
+            startedAt: observation.observedAt,
+            finishedAt: new Date(observation.observedAt.getTime() + 1_000),
+            errorCode: observation.errorCode,
+            errorMessage: observation.errorMessage,
+          })
+          .returning({ id: ingestionRuns.id });
+        if (ingestionRun === undefined) {
+          throw new Error("ingestion run insert did not return an id");
+        }
+
+        await db.insert(scopeObservations).values({
+          ingestionRunId: ingestionRun.id,
+          observationScopeId: observationScope.id,
+          status: observation.status,
+          observedAt: observation.observedAt,
+          errorCode: observation.errorCode,
+          errorMessage: observation.errorMessage,
+          retryable: observation.retryable,
+        });
+      }
+
+      const latestStatus = await db.execute<{
+        source_id: string;
+        scope_id: string;
+        status: string;
+        observed_at: Date;
+        error_code: string | null;
+        latest_success_observed_at: Date | null;
+        retryable: boolean | null;
+      }>(sql`
+        SELECT source_id, scope_id, status, observed_at, error_code, latest_success_observed_at, retryable
+        FROM ingestion_latest_status
+      `);
+
+      expect(latestStatus).toHaveLength(1);
+      expect(latestStatus[0]).toMatchObject({
+        source_id: "bitbank",
+        scope_id: "bitbank:spot_account",
+        status: "failed",
+        error_code: null,
+        retryable: true,
+      });
+      expect(new Date(String(latestStatus[0]?.observed_at)).toISOString()).toBe("2026-06-18T03:00:00.000Z");
+      expect(new Date(String(latestStatus[0]?.latest_success_observed_at)).toISOString()).toBe("2026-06-18T00:00:00.000Z");
+
+      const history = await db.execute<{ status: string; error_code: string | null }>(sql`
+        SELECT status, error_code
+        FROM ingestion_observation_history
+        ORDER BY observed_at
+      `);
+      expect(history.map((row) => row.status)).toEqual(["success", "partial", "failed", "failed"]);
+
+      const recentErrors = await db.execute<{ status: string; error_code: string | null; error_message: string | null }>(sql`
+        SELECT status, error_code, error_message
+        FROM ingestion_recent_errors
+        ORDER BY observed_at
+      `);
+      expect(recentErrors).toMatchObject([
+        { status: "partial", error_code: "missing_ticker", error_message: "Missing JPY ticker for ETH" },
+        { status: "failed", error_code: "network_error", error_message: "bitbank API request failed" },
+        { status: "failed", error_code: null, error_message: null },
+      ]);
     });
   });
 
