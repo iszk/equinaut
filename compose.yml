@@ -5,6 +5,8 @@ services:
     image: node:24
     user: node
     environment:
+      - TZ=Asia/Tokyo
+      - LANG=C.UTF-8
       - DATABASE_URL=postgres://${POSTGRES_USER:-equinaut}:${POSTGRES_PASSWORD:-equinaut}@postgres:5432/${POSTGRES_DB:-equinaut}
       - BITBANK_API_KEY=${BITBANK_API_KEY:-}
       - BITBANK_API_SECRET=${BITBANK_API_SECRET:-}
@@ -29,6 +31,8 @@ services:
     build:
       context: .
     environment:
+      - TZ=Asia/Tokyo
+      - LANG=C.UTF-8
       - DATABASE_URL=postgres://${POSTGRES_USER:-equinaut}:${POSTGRES_PASSWORD:-equinaut}@postgres:5432/${POSTGRES_DB:-equinaut}
       - BITBANK_API_KEY=${BITBANK_API_KEY:-}
       - BITBANK_API_SECRET=${BITBANK_API_SECRET:-}
@@ -50,6 +54,8 @@ services:
     volumes:
       - pg-data:/var/lib/postgresql
     environment:
+      - TZ=Asia/Tokyo
+      - LANG=C.UTF-8
       - POSTGRES_USER=${POSTGRES_USER:-equinaut}
       - POSTGRES_DB=${POSTGRES_DB:-equinaut}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-equinaut}
