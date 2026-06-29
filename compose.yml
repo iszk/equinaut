@@ -50,7 +50,6 @@ services:
 
   postgres:
     restart: unless-stopped
-    container_name: equinaut-pg
     image: postgres:18
     volumes:
       - pg-data:/var/lib/postgresql
