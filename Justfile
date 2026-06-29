@@ -2,7 +2,7 @@ default:
     @just --choose
 
 setup:
-    @mise trust
+    @mise trust --yes
     @mise install
 
 psql:
