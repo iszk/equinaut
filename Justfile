@@ -1,6 +1,10 @@
 default:
     @just --choose
 
+setup:
+    @mise trust
+    @mise install
+
 psql:
     @docker compose exec -it postgres sh -lc 'psql -U "${POSTGRES_USER:-equinaut}" -d "${POSTGRES_DB:-equinaut}"'
 
