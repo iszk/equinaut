@@ -299,6 +299,20 @@ maybeDescribe("portfolio dashboard views integration", () => {
         { assetKey: "bitbank:spot_account:crypto:ETH", valueJpy: "1000.000000000000000000" },
       ]);
 
+      const allocation = await db.select().from(portfolioAssetAllocation).orderBy(asc(portfolioAssetAllocation.assetKey));
+      expect(allocation.map((asset) => ({ assetKey: asset.assetKey, valueJpy: asset.valueJpy, portfolioWeight: asset.portfolioWeight }))).toEqual([
+        {
+          assetKey: "bitbank:spot_account:crypto:BTC",
+          valueJpy: "2000.000000000000000000",
+          portfolioWeight: "0.666666666666666667",
+        },
+        {
+          assetKey: "bitbank:spot_account:crypto:ETH",
+          valueJpy: "1000.000000000000000000",
+          portfolioWeight: "0.333333333333333333",
+        },
+      ]);
+
       const timeseries = await db
         .select()
         .from(portfolioValueTimeseries)
