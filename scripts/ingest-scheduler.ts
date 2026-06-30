@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { loadSchedulerConfigFromFile } from "../src/server/ingestion/scheduler-config.js";
+import { formatSchedulerCliFailure } from "../src/server/ingestion/scheduler-cli.js";
 import { runScheduledIngestion } from "../src/server/ingestion/scheduler.js";
 
 const defaultConfigPath = "config/ingestion.yaml";
@@ -31,7 +32,6 @@ try {
   const config = await loadSchedulerConfigFromFile(configPath);
   await runScheduledIngestion({ config, signal: abortController.signal });
 } catch (error) {
-  const message = error instanceof Error ? error.message : "unknown error";
-  console.error(`ingestion scheduler failed: ${message}`);
+  console.error(formatSchedulerCliFailure(error));
   process.exit(1);
 }
