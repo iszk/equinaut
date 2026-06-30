@@ -99,6 +99,18 @@
                 "value": "dateTimeAsIso"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latest_success_observed_at"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsIso"
+              }
+            ]
           }
         ]
       },
@@ -130,11 +142,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select\n  source_id,\n  scope_id,\n  max(observed_at) as latest_observed_at\nfrom portfolio_latest_assets\nwhere source_id in (${source_id:sqlstring})\n  and scope_id in (${scope_id:sqlstring})\ngroup by source_id, scope_id\norder by latest_observed_at desc;",
+          "rawSql": "select\n  source_id,\n  scope_id,\n  latest_observation_status,\n  latest_observed_at,\n  latest_success_observed_at,\n  is_latest_success,\n  uses_fallback,\n  latest_error_code,\n  latest_retryable\nfrom portfolio_scope_freshness\nwhere source_id in (${source_id:sqlstring})\n  and scope_id in (${scope_id:sqlstring})\norder by latest_observed_at desc;",
           "refId": "A"
         }
       ],
-      "title": "最新 successful observation",
+      "title": "取得状態 / fallback",
       "type": "table"
     },
     {
@@ -429,14 +441,14 @@
           "type": "postgres",
           "uid": "${datasource}"
         },
-        "definition": "select distinct source_id from portfolio_latest_assets order by source_id;",
+        "definition": "select distinct source_id from portfolio_scope_freshness order by source_id;",
         "hide": 0,
         "includeAll": false,
         "label": "Source",
         "multi": true,
         "name": "source_id",
         "options": [],
-        "query": "select distinct source_id from portfolio_latest_assets order by source_id;",
+        "query": "select distinct source_id from portfolio_scope_freshness order by source_id;",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -455,14 +467,14 @@
           "type": "postgres",
           "uid": "${datasource}"
         },
-        "definition": "select distinct scope_id from portfolio_latest_assets where source_id in (${source_id:sqlstring}) order by scope_id;",
+        "definition": "select distinct scope_id from portfolio_scope_freshness where source_id in (${source_id:sqlstring}) order by scope_id;",
         "hide": 0,
         "includeAll": false,
         "label": "Scope",
         "multi": true,
         "name": "scope_id",
         "options": [],
-        "query": "select distinct scope_id from portfolio_latest_assets where source_id in (${source_id:sqlstring}) order by scope_id;",
+        "query": "select distinct scope_id from portfolio_scope_freshness where source_id in (${source_id:sqlstring}) order by scope_id;",
         "refresh": 2,
         "sort": 1,
         "type": "query"

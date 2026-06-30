@@ -115,6 +115,10 @@ order by observed_at desc;
 select *
 from portfolio_asset_allocation
 order by value_jpy desc;
+
+select *
+from portfolio_scope_freshness
+order by latest_observed_at desc;
 ```
 
 `portfolio_asset_allocation` は `source_id` / `scope_id` 単位で scoped されています。複数 scope を扱う場合は、Grafana の filter または label にこれらの field を含めてください。

@@ -9,6 +9,7 @@ import {
   observationScopes,
   portfolioAssetAllocation,
   portfolioLatestAssets,
+  portfolioScopeFreshness,
   portfolioValueTimeseries,
   scopeObservations,
   sourceAccounts,
@@ -210,6 +211,114 @@ maybeDescribe("portfolio dashboard views integration", () => {
       expect(allocation.map((asset) => ({ assetKey: asset.assetKey, portfolioWeight: asset.portfolioWeight }))).toEqual([
         { assetKey: "bitbank:spot_account:crypto:BTC", portfolioWeight: "0.666666666666666667" },
         { assetKey: "bitbank:spot_account:crypto:ETH", portfolioWeight: "0.333333333333333333" },
+      ]);
+
+      const [freshness] = await db
+        .select()
+        .from(portfolioScopeFreshness)
+        .where(eq(portfolioScopeFreshness.scopeId, "bitbank:spot_account"));
+      expect(freshness).toMatchObject({
+        latestObservationStatus: "success",
+        isLatestSuccess: true,
+        usesFallback: false,
+      });
+      expect(freshness?.latestObservedAt.toISOString()).toBe("2026-06-17T00:00:00.000Z");
+      expect(freshness?.latestSuccessObservedAt?.toISOString()).toBe("2026-06-17T00:00:00.000Z");
+    });
+  });
+
+  it("exposes latest observation status and latest success fallback per source scope", async () => {
+    await withTestDatabase(async ({ db }) => {
+      const driver = createDrizzleIngestionPersistenceDriver(db);
+
+      await persistBitbankSpotObservation({
+        driver,
+        observation: {
+          scopeId: "bitbank:spot_account",
+          observedAt: new Date("2026-06-17T00:00:00.000Z"),
+          status: "success",
+          holdings: [holding("BTC", "2000"), holding("ETH", "1000")],
+        },
+      });
+
+      await persistBitbankSpotObservation({
+        driver,
+        observation: {
+          scopeId: "bitbank:spot_account",
+          observedAt: new Date("2026-06-18T00:00:00.000Z"),
+          status: "partial",
+          error: {
+            code: "missing_ticker",
+            rawErrorCode: "ticker-1",
+            message: "JPY ticker is missing",
+            retryable: false,
+            category: "valuation",
+          },
+          holdings: [holding("BTC", "3000")],
+        },
+      });
+
+      await persistBitbankSpotObservation({
+        driver,
+        observation: {
+          scopeId: "bitbank:spot_account",
+          observedAt: new Date("2026-06-19T00:00:00.000Z"),
+          status: "failed",
+          error: {
+            code: "network_failed",
+            rawErrorCode: "503",
+            message: "network failure",
+            retryable: true,
+            category: "network",
+          },
+          holdings: [],
+        },
+      });
+
+      const [freshness] = await db
+        .select()
+        .from(portfolioScopeFreshness)
+        .where(eq(portfolioScopeFreshness.scopeId, "bitbank:spot_account"));
+      expect(freshness).toMatchObject({
+        sourceId: "bitbank",
+        scopeId: "bitbank:spot_account",
+        scopeType: "spot_account",
+        latestObservationStatus: "failed",
+        latestErrorCode: "network_failed",
+        latestRawErrorCode: "503",
+        latestRetryable: true,
+        isLatestSuccess: false,
+        usesFallback: true,
+      });
+      expect(freshness?.latestObservedAt.toISOString()).toBe("2026-06-19T00:00:00.000Z");
+      expect(freshness?.latestSuccessObservedAt?.toISOString()).toBe("2026-06-17T00:00:00.000Z");
+
+      const latestAssets = await db.select().from(portfolioLatestAssets).orderBy(asc(portfolioLatestAssets.assetKey));
+      expect(latestAssets.map((asset) => ({ assetKey: asset.assetKey, valueJpy: asset.valueJpy }))).toEqual([
+        { assetKey: "bitbank:spot_account:crypto:BTC", valueJpy: "2000.000000000000000000" },
+        { assetKey: "bitbank:spot_account:crypto:ETH", valueJpy: "1000.000000000000000000" },
+      ]);
+
+      const allocation = await db.select().from(portfolioAssetAllocation).orderBy(asc(portfolioAssetAllocation.assetKey));
+      expect(allocation.map((asset) => ({ assetKey: asset.assetKey, valueJpy: asset.valueJpy, portfolioWeight: asset.portfolioWeight }))).toEqual([
+        {
+          assetKey: "bitbank:spot_account:crypto:BTC",
+          valueJpy: "2000.000000000000000000",
+          portfolioWeight: "0.666666666666666667",
+        },
+        {
+          assetKey: "bitbank:spot_account:crypto:ETH",
+          valueJpy: "1000.000000000000000000",
+          portfolioWeight: "0.333333333333333333",
+        },
+      ]);
+
+      const timeseries = await db
+        .select()
+        .from(portfolioValueTimeseries)
+        .orderBy(asc(portfolioValueTimeseries.observedAt));
+      expect(timeseries.map((point) => ({ observedAt: point.observedAt.toISOString(), totalValueJpy: point.totalValueJpy }))).toEqual([
+        { observedAt: "2026-06-17T00:00:00.000Z", totalValueJpy: "3000.000000000000000000" },
       ]);
     });
   });
