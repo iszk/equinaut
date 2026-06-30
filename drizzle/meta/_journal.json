@@ -29,6 +29,13 @@
       "when": 1782789753862,
       "tag": "0003_scope_observation_voiding",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782791000000,
+      "tag": "0004_portfolio_scope_freshness",
+      "breakpoints": true
     }
   ]
 }

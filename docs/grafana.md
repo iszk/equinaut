@@ -19,6 +19,7 @@
   - `portfolio_latest_assets`
   - `portfolio_value_timeseries`
   - `portfolio_asset_allocation`
+  - `portfolio_scope_freshness`
 
 `portfolio_latest_allocation` という view は存在しません。
 
@@ -69,9 +70,9 @@ provisioning で管理する場合は、dashboard JSON を既存 Grafana の das
 
 `portfolio_latest_assets` を table として表示します。`quantity`, `price`, `value_jpy`, `observed_at` を確認できます。
 
-### 最新 successful observation
+### 取得状態 / fallback
 
-`portfolio_latest_assets` から、source / scope ごとの最新 successful observation に紐づく asset snapshot 時刻を表示します。現行 view だけを使うため、asset snapshot がない observation はこの panel には出ません。
+`portfolio_scope_freshness` から、source / scope ごとの最新 observation status、最新取得日時、最終成功日時、fallback 利用有無を表示します。`failed` / `partial` の場合もこの panel に出ます。stale threshold は DB view に固定せず、Grafana や application 側の設定で日時列を比較してください。
 
 ## SQL
 
@@ -92,7 +93,8 @@ grant usage on schema public to reader;
 grant select on
   portfolio_latest_assets,
   portfolio_value_timeseries,
-  portfolio_asset_allocation
+  portfolio_asset_allocation,
+  portfolio_scope_freshness
 to reader;
 ```
 
@@ -100,6 +102,6 @@ to reader;
 
 ## partial observation の扱い
 
-現在の dashboard views は successful observation のみを参照します。partial observation の snapshots は audit / reprocessing 用に保存されることがありますが、現時点では Grafana の latest / timeseries / allocation には出しません。
+現在の portfolio value / latest assets / allocation views は successful observation のみを参照します。partial observation の snapshots は audit / reprocessing 用に保存されることがありますが、現時点では Grafana の latest / timeseries / allocation には出しません。
 
-partial を dashboard に出す場合は、欠損 asset による過小評価を避けるため、warning 表示や separate panel などの仕様を別途設計してください。
+partial / failed の最新状態は `portfolio_scope_freshness` で表示します。fallback 込みの総資産表示では、最終成功 snapshot の値を使っていることが分かるように `uses_fallback` と `latest_success_observed_at` を併記してください。

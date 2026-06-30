@@ -72,6 +72,9 @@ export const scopeObservations = pgTable(
   (table) => ({
     statusCheck: check("scope_observations_status_check", sql`${table.status} in ('success', 'partial', 'failed', 'skipped')`),
     scopeObservedIdx: index("scope_observations_scope_observed_idx").on(table.observationScopeId, table.observedAt),
+    scopeLatestObservationIdx: index("scope_observations_latest_observation_idx")
+      .on(table.observationScopeId, table.observedAt.desc(), table.id.desc())
+      .where(sql`${table.voidedAt} is null`),
     scopeLatestSuccessIdx: index("scope_observations_latest_success_idx")
       .on(table.observationScopeId, table.observedAt.desc(), table.id.desc())
       .where(sql`${table.status} = 'success' and ${table.voidedAt} is null`),
@@ -142,4 +145,24 @@ export const portfolioAssetAllocation = pgView("portfolio_asset_allocation", {
   name: text("name"),
   valueJpy: numeric("value_jpy", { precision: 38, scale: 18 }).notNull(),
   portfolioWeight: numeric("portfolio_weight", { precision: 38, scale: 18 }).notNull(),
+}).existing();
+
+export const portfolioScopeFreshness = pgView("portfolio_scope_freshness", {
+  sourceId: text("source_id").notNull(),
+  sourceAccountId: uuid("source_account_id").notNull(),
+  observationScopeId: uuid("observation_scope_id").notNull(),
+  scopeId: text("scope_id").notNull(),
+  scopeType: text("scope_type").notNull(),
+  latestScopeObservationId: uuid("latest_scope_observation_id").notNull(),
+  latestObservationStatus: text("latest_observation_status").notNull(),
+  latestObservedAt: timestamp("latest_observed_at", { withTimezone: true }).notNull(),
+  latestDataAsOf: timestamp("latest_data_as_of", { withTimezone: true }),
+  latestErrorCode: text("latest_error_code"),
+  latestRawErrorCode: text("latest_raw_error_code"),
+  latestRetryable: boolean("latest_retryable"),
+  latestSuccessScopeObservationId: uuid("latest_success_scope_observation_id"),
+  latestSuccessObservedAt: timestamp("latest_success_observed_at", { withTimezone: true }),
+  latestSuccessDataAsOf: timestamp("latest_success_data_as_of", { withTimezone: true }),
+  isLatestSuccess: boolean("is_latest_success").notNull(),
+  usesFallback: boolean("uses_fallback").notNull(),
 }).existing();

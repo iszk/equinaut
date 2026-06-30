@@ -37,7 +37,7 @@ type: document
 - scheduler は source ごとの失敗を process 全体に波及させず、次回 interval で再試行できるようにします。次回実行時刻は source 実行完了時刻を基準に計算します。
 - Dockerized scheduler は build 時に `npm ci` を実行し、起動時に install しません。runtime では source root を bind mount せず、`config/` など必要最小限の read-only mount に留めます。
 - Docker Compose の scheduler は 1 replica 前提です。複数 replica が必要になった場合は、起動時 migration を scheduler から分離して one-shot migration service などに移してください。
-- Grafana / dashboard 向け DB view は `portfolio_latest_assets`, `portfolio_value_timeseries`, `portfolio_asset_allocation` です。`portfolio_latest_allocation` という view は存在しません。
+- Grafana / dashboard 向け DB view は `portfolio_latest_assets`, `portfolio_value_timeseries`, `portfolio_asset_allocation`, `portfolio_scope_freshness` です。`portfolio_latest_allocation` という view は存在しません。
 
 # コーディング規約 (Coding Standards)
 ## TypeScript
