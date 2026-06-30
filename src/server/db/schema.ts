@@ -61,6 +61,8 @@ export const scopeObservations = pgTable(
     status: text("status").notNull(),
     observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
     dataAsOf: timestamp("data_as_of", { withTimezone: true }),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidReason: text("void_reason"),
     errorCode: text("error_code"),
     rawErrorCode: text("raw_error_code"),
     errorMessage: text("error_message"),
@@ -72,7 +74,7 @@ export const scopeObservations = pgTable(
     scopeObservedIdx: index("scope_observations_scope_observed_idx").on(table.observationScopeId, table.observedAt),
     scopeLatestSuccessIdx: index("scope_observations_latest_success_idx")
       .on(table.observationScopeId, table.observedAt.desc(), table.id.desc())
-      .where(sql`${table.status} = 'success'`),
+      .where(sql`${table.status} = 'success' and ${table.voidedAt} is null`),
   }),
 );
 

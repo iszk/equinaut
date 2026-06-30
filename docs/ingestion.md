@@ -127,3 +127,15 @@ order by value_jpy desc;
 4. `npm run ingest:bitbank` を手動、または scheduler から実行します。
 5. dashboard views が rows を返すことを確認します。
 6. Grafana には同じ database を read-only role で参照させます。
+
+### 誤投入 observation を無効化する
+
+誤った `success` observation が投入された場合も、append-only 方針を維持するため物理削除は行いません。対象の `scope_observations` に `voided_at` を設定すると、`portfolio_latest_assets` / `portfolio_value_timeseries` / `portfolio_asset_allocation` から除外されます。理由を残せる場合は `void_reason` も設定してください。
+
+```sql
+update scope_observations
+set
+  voided_at = now(),
+  void_reason = '誤投入データのため無効化'
+where id = '<scope_observation_id>';
+```
