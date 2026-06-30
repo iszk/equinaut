@@ -93,7 +93,7 @@ Durable knowledge includes:
 - important tradeoffs
 - rejected alternatives
 
-Do not reorganize or rewrite wiki pages unless explicitly asked.
+wikiページを再構成したり書き換えたりしたほうが良いと判断した場合、変更内容の概要を示し、判断を仰いでください。
 
-Keep notes concise.
-Separate confirmed facts, assumptions, open questions, and deprecated information.
+メモは簡潔に保ってください。
+確認済みの事実、前提条件、未解決の疑問、および非推奨の情報を区別して記載してください。

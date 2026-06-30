@@ -4,6 +4,7 @@ default:
 setup:
     @mise trust --yes
     @mise install
+    @npm ci
 
 psql:
     @docker compose exec -it postgres sh -lc 'psql -U "${POSTGRES_USER:-equinaut}" -d "${POSTGRES_DB:-equinaut}"'
