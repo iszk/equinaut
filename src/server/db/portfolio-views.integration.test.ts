@@ -1,4 +1,4 @@
-import { asc, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createDrizzleIngestionPersistenceDriver, persistBitbankSpotObservation } from "../ingestion/persistence.js";
 import type { HoldingSnapshot } from "../sources/bitbank/types.js";
@@ -211,7 +211,10 @@ maybeDescribe("portfolio dashboard views integration", () => {
         { assetKey: "bitbank:spot_account:crypto:ETH", portfolioWeight: "0.333333333333333333" },
       ]);
 
-      const [freshness] = await db.select().from(portfolioScopeFreshness);
+      const [freshness] = await db
+        .select()
+        .from(portfolioScopeFreshness)
+        .where(eq(portfolioScopeFreshness.scopeId, "bitbank:spot_account"));
       expect(freshness).toMatchObject({
         latestObservationStatus: "success",
         isLatestSuccess: true,
@@ -270,7 +273,10 @@ maybeDescribe("portfolio dashboard views integration", () => {
         },
       });
 
-      const [freshness] = await db.select().from(portfolioScopeFreshness);
+      const [freshness] = await db
+        .select()
+        .from(portfolioScopeFreshness)
+        .where(eq(portfolioScopeFreshness.scopeId, "bitbank:spot_account"));
       expect(freshness).toMatchObject({
         sourceId: "bitbank",
         scopeId: "bitbank:spot_account",
