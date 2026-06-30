@@ -70,6 +70,7 @@ export const scopeObservations = pgTable(
   (table) => ({
     statusCheck: check("scope_observations_status_check", sql`${table.status} in ('success', 'partial', 'failed', 'skipped')`),
     scopeObservedIdx: index("scope_observations_scope_observed_idx").on(table.observationScopeId, table.observedAt),
+    scopeLatestIdx: index("scope_observations_latest_idx").on(table.observationScopeId, table.observedAt.desc(), table.id.desc()),
     scopeLatestSuccessIdx: index("scope_observations_latest_success_idx")
       .on(table.observationScopeId, table.observedAt.desc(), table.id.desc())
       .where(sql`${table.status} = 'success'`),
@@ -140,4 +141,64 @@ export const portfolioAssetAllocation = pgView("portfolio_asset_allocation", {
   name: text("name"),
   valueJpy: numeric("value_jpy", { precision: 38, scale: 18 }).notNull(),
   portfolioWeight: numeric("portfolio_weight", { precision: 38, scale: 18 }).notNull(),
+}).existing();
+
+export const ingestionObservationHistory = pgView("ingestion_observation_history", {
+  sourceId: text("source_id").notNull(),
+  sourceAccountId: uuid("source_account_id").notNull(),
+  observationScopeId: uuid("observation_scope_id").notNull(),
+  scopeId: text("scope_id").notNull(),
+  scopeType: text("scope_type").notNull(),
+  scopeObservationId: uuid("scope_observation_id").notNull(),
+  ingestionRunId: uuid("ingestion_run_id").notNull(),
+  status: text("status").notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  dataAsOf: timestamp("data_as_of", { withTimezone: true }),
+  errorCode: text("error_code"),
+  rawErrorCode: text("raw_error_code"),
+  errorMessage: text("error_message"),
+  retryable: boolean("retryable"),
+  runStatus: text("run_status").notNull(),
+  runStartedAt: timestamp("run_started_at", { withTimezone: true }).notNull(),
+  runFinishedAt: timestamp("run_finished_at", { withTimezone: true }),
+}).existing();
+
+export const ingestionLatestStatus = pgView("ingestion_latest_status", {
+  sourceId: text("source_id").notNull(),
+  sourceAccountId: uuid("source_account_id").notNull(),
+  observationScopeId: uuid("observation_scope_id").notNull(),
+  scopeId: text("scope_id").notNull(),
+  scopeType: text("scope_type").notNull(),
+  scopeObservationId: uuid("scope_observation_id").notNull(),
+  ingestionRunId: uuid("ingestion_run_id").notNull(),
+  status: text("status").notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  latestSuccessObservedAt: timestamp("latest_success_observed_at", { withTimezone: true }),
+  dataAsOf: timestamp("data_as_of", { withTimezone: true }),
+  errorCode: text("error_code"),
+  rawErrorCode: text("raw_error_code"),
+  errorMessage: text("error_message"),
+  retryable: boolean("retryable"),
+  runStatus: text("run_status").notNull(),
+  runStartedAt: timestamp("run_started_at", { withTimezone: true }).notNull(),
+  runFinishedAt: timestamp("run_finished_at", { withTimezone: true }),
+}).existing();
+
+export const ingestionRecentErrors = pgView("ingestion_recent_errors", {
+  sourceId: text("source_id").notNull(),
+  sourceAccountId: uuid("source_account_id").notNull(),
+  observationScopeId: uuid("observation_scope_id").notNull(),
+  scopeId: text("scope_id").notNull(),
+  scopeType: text("scope_type").notNull(),
+  scopeObservationId: uuid("scope_observation_id").notNull(),
+  ingestionRunId: uuid("ingestion_run_id").notNull(),
+  status: text("status").notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  errorCode: text("error_code"),
+  rawErrorCode: text("raw_error_code"),
+  errorMessage: text("error_message"),
+  retryable: boolean("retryable"),
+  runStatus: text("run_status").notNull(),
+  runStartedAt: timestamp("run_started_at", { withTimezone: true }).notNull(),
+  runFinishedAt: timestamp("run_finished_at", { withTimezone: true }),
 }).existing();
