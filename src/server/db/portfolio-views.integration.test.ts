@@ -1,4 +1,4 @@
-import { asc, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createDrizzleIngestionPersistenceDriver, persistBitbankSpotObservation } from "../ingestion/persistence.js";
 import type { HoldingSnapshot } from "../sources/bitbank/types.js";
@@ -180,8 +180,10 @@ maybeDescribe("portfolio dashboard views integration", () => {
           voidReason: "誤投入データのため除外",
         })
         .where(
-          sql`${scopeObservations.observedAt} = ${voidedObservedAt}
-            and ${scopeObservations.observationScopeId} = ${observationScope.id}`,
+          and(
+            eq(scopeObservations.observedAt, voidedObservedAt),
+            eq(scopeObservations.observationScopeId, observationScope.id),
+          ),
         )
         .returning({ id: scopeObservations.id });
       expect(voidedObservations).toHaveLength(1);
