@@ -6,4 +6,5 @@ config/ingestion.yaml
 node_modules
 dist
 tmp
-obsidian/
+
+obsidian
