@@ -165,13 +165,26 @@ maybeDescribe("portfolio dashboard views integration", () => {
         },
       });
 
-      await db
+      const [observationScope] = await db
+        .select({ id: observationScopes.id })
+        .from(observationScopes)
+        .where(sql`${observationScopes.scopeId} = ${"bitbank:spot_account"}`);
+      if (observationScope === undefined) {
+        throw new Error("observation scope insert did not return an id");
+      }
+
+      const voidedObservations = await db
         .update(scopeObservations)
         .set({
           voidedAt: new Date("2026-06-19T00:00:00.000Z"),
           voidReason: "誤投入データのため除外",
         })
-        .where(sql`${scopeObservations.observedAt} = ${voidedObservedAt}`);
+        .where(
+          sql`${scopeObservations.observedAt} = ${voidedObservedAt}
+            and ${scopeObservations.observationScopeId} = ${observationScope.id}`,
+        )
+        .returning({ id: scopeObservations.id });
+      expect(voidedObservations).toHaveLength(1);
 
       const latestAssets = await db.select().from(portfolioLatestAssets).orderBy(asc(portfolioLatestAssets.assetKey));
       expect(latestAssets.map((asset) => ({ assetKey: asset.assetKey, valueJpy: asset.valueJpy }))).toEqual([
