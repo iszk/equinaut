@@ -80,6 +80,49 @@ maybeDescribe("persistBitbankSpotObservation integration", () => {
     });
   });
 
+  it("preserves values within the numeric(38,18) precision policy", async () => {
+    await withTestDatabase(async ({ db }) => {
+      const driver = createDrizzleIngestionPersistenceDriver(db);
+      const precisionHolding: HoldingSnapshot = {
+        assetKey: "bitbank:spot_account:crypto:BTC",
+        assetType: "crypto",
+        symbol: "BTC",
+        quantity: "0.123456789012345678",
+        price: "99999999999999999999.999999999999999999",
+        priceCurrency: "JPY",
+        fxToJpy: "1.123456789012345678",
+        valueJpy: "99999999999999999999.999999999999999999",
+        raw: {
+          source: "bitbank",
+          endpoint: "GET /user/assets",
+          asset: "btc",
+          amount_precision: 18,
+          onhand_amount: "0.123456789012345678",
+          stop_deposit: false,
+          stop_withdrawal: false,
+        },
+      };
+
+      await persistBitbankSpotObservation({
+        driver,
+        observation: {
+          scopeId: "bitbank:spot_account",
+          observedAt,
+          status: "success",
+          holdings: [precisionHolding],
+        },
+      });
+
+      const [snapshot] = await db.select().from(assetSnapshots).where(eq(assetSnapshots.assetKey, precisionHolding.assetKey));
+      expect(snapshot).toMatchObject({
+        quantity: "0.123456789012345678",
+        price: "99999999999999999999.999999999999999999",
+        fxToJpy: "1.123456789012345678",
+        valueJpy: "99999999999999999999.999999999999999999",
+      });
+    });
+  });
+
   it("reuses source account and observation scope via unique constraints", async () => {
     await withTestDatabase(async ({ db }) => {
       const driver = createDrizzleIngestionPersistenceDriver(db);
