@@ -54,42 +54,46 @@ type: document
 - コードブロックには必ず適切な言語タグ（`tsx`, `typescript` など）をつけてください。
 - 提案するコードには、複雑なロジックの部分にのみ簡潔なコメントを残してください。自明な処理へのコメントは不要です。
 
-# Git & GitHub Development Workflow Rules
+# Project notes
 
-You are authorized to manage the Git workflow for this project. When tasked with implementing features, fixing bugs, or making changes, you MUST strictly follow the workflow below.
+This repository may have a local `obsidian/` directory.
 
-## 1. Branching Strategy
-Never work directly on the `main` branch. Always create a topic branch.
-- **Naming Convention:**
-  - Feature implementation: `feature/short-description`
-  - Bug fixes: `fix/short-description`
-  - Refactoring/Chore: `chore/short-description`
-- **Action:** Execute `git checkout -b <branch-name>` from the latest default branch.
+`obsidian/` is gitignored and symlinked to the user's Obsidian project notes. It is not part of the repository, but it may contain useful project context.
 
-## 2. Development & Commits
-- Make changes incrementally. Run tests (if available) to ensure your changes work.
-- Stage your changes using `git add <files>`. Do not blindly run `git add .` if there are untracked junk files.
-- **Commit Messages:** Follow the Conventional Commits specification.
-  - Format: `type(scope): <日本語の説明>` (e.g., `feat(auth): ログイン処理を追加`)
-  - Keep descriptions concise and clear.
-  - コミットメッセージの説明文（description）は日本語で書くこと
+Before non-trivial work, read:
 
-## 3. Pushing to GitHub
-- Once the implementation is verified and committed, push the topic branch to the remote repository.
-  - Action: `git push origin <branch-name>`
-- If you encounter an authentication error, report it to the user immediately.
+- `obsidian/index.md`
+- `obsidian/ai_wiki/index.md`
+- relevant pages linked from those files
 
-## 4. Creating a Pull Request (PR) via MCP
-After a successful push, you MUST create a Pull Request using the **GitHub MCP Server tools** (do not use raw `gh` commands if MCP is active).
-- **Target Branch:** `main` (or the repository's default branch)
-- **PR Title:** Same as your primary commit message (e.g., `feat(auth): ログイン処理を追加`)
-- **PR Description:** 以下の内容を含めて日本語で記述してください
-  - どのような変更が行われたか
-  - なぜその変更が行われたか
-  - 重要な実装上の詳細
-  - 今回あえて対応しなかった内容
-- **Outcome:** Once the PR is created, output the PR URL to the user and ask for their review.
+If `obsidian/` is missing or unreadable, continue using only repository files and mention this in the final response.
 
-## 5. Error Handling
-- **Merge Conflicts:** If a conflict occurs during a rebase or merge, try to resolve it using your file editing tools. If unsure, stop and ask the user.
-- **Permission Denied:** If the GitHub MCP tool returns a 403 or 401 error, the token permissions might be insufficient. Report the required permissions (Contents: Write, Pull Requests: Write) to the user.
+# Tasks
+
+`obsidian/tasks/` contains task notes.
+
+Use task files for context when relevant, but do not rewrite, reorganize, create, delete, or change task status unless explicitly asked.
+
+task の読み書きは、利用可能なら obsidian-tasks skill を使い、利用できない場合は通常のファイル操作で行ってください。
+
+# AI wiki
+
+`obsidian/ai_wiki/` contains durable project knowledge for coding agents.
+
+When a task reveals durable knowledge, append a concise note to:
+
+- `obsidian/ai_wiki/inbox.md`
+
+Durable knowledge includes:
+
+- architecture decisions
+- setup or deployment notes
+- recurring pitfalls
+- debugging findings likely to matter again
+- important tradeoffs
+- rejected alternatives
+
+Do not reorganize or rewrite wiki pages unless explicitly asked.
+
+Keep notes concise.
+Separate confirmed facts, assumptions, open questions, and deprecated information.
