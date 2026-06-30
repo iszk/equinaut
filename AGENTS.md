@@ -74,7 +74,7 @@ If `obsidian/` is missing or unreadable, continue using only repository files an
 
 Use task files for context when relevant, but do not rewrite, reorganize, create, delete, or change task status unless explicitly asked.
 
-task の読み書きは obsidian-tasks skill を利用してください。
+task の読み書きは、利用可能なら obsidian-tasks skill を使い、利用できない場合は通常のファイル操作で行ってください。
 
 # AI wiki
 
