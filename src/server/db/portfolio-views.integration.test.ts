@@ -47,7 +47,8 @@ maybeDescribe("portfolio dashboard views integration", () => {
       `);
 
       expect(result).toHaveLength(1);
-      expect(result[0]?.indexdef).toContain("WHERE (status = 'success'::text)");
+      expect(result[0]?.indexdef).toContain("status = 'success'::text");
+      expect(result[0]?.indexdef).toContain("voided_at IS NULL");
     });
   });
 
@@ -135,6 +136,65 @@ maybeDescribe("portfolio dashboard views integration", () => {
           valueJpy: "7000.000000000000000000",
           portfolioWeight: "0.700000000000000000",
         },
+      ]);
+    });
+  });
+
+  it("excludes voided successful observations from latest assets, timeseries, and allocation", async () => {
+    await withTestDatabase(async ({ db }) => {
+      const driver = createDrizzleIngestionPersistenceDriver(db);
+      const voidedObservedAt = new Date("2026-06-18T00:00:00.000Z");
+
+      await persistBitbankSpotObservation({
+        driver,
+        observation: {
+          scopeId: "bitbank:spot_account",
+          observedAt: new Date("2026-06-17T00:00:00.000Z"),
+          status: "success",
+          holdings: [holding("BTC", "2000"), holding("ETH", "1000")],
+        },
+      });
+
+      await persistBitbankSpotObservation({
+        driver,
+        observation: {
+          scopeId: "bitbank:spot_account",
+          observedAt: voidedObservedAt,
+          status: "success",
+          holdings: [holding("BTC", "9000"), holding("ETH", "1000")],
+        },
+      });
+
+      await db
+        .update(scopeObservations)
+        .set({
+          voidedAt: new Date("2026-06-19T00:00:00.000Z"),
+          voidReason: "誤投入データのため除外",
+        })
+        .where(sql`${scopeObservations.observedAt} = ${voidedObservedAt}`);
+
+      const latestAssets = await db.select().from(portfolioLatestAssets).orderBy(asc(portfolioLatestAssets.assetKey));
+      expect(latestAssets.map((asset) => ({ assetKey: asset.assetKey, valueJpy: asset.valueJpy }))).toEqual([
+        { assetKey: "bitbank:spot_account:crypto:BTC", valueJpy: "2000.000000000000000000" },
+        { assetKey: "bitbank:spot_account:crypto:ETH", valueJpy: "1000.000000000000000000" },
+      ]);
+      expect(latestAssets.map((asset) => asset.observedAt.toISOString())).toEqual([
+        "2026-06-17T00:00:00.000Z",
+        "2026-06-17T00:00:00.000Z",
+      ]);
+
+      const timeseries = await db
+        .select()
+        .from(portfolioValueTimeseries)
+        .orderBy(asc(portfolioValueTimeseries.observedAt));
+      expect(timeseries.map((point) => ({ observedAt: point.observedAt.toISOString(), totalValueJpy: point.totalValueJpy }))).toEqual([
+        { observedAt: "2026-06-17T00:00:00.000Z", totalValueJpy: "3000.000000000000000000" },
+      ]);
+
+      const allocation = await db.select().from(portfolioAssetAllocation).orderBy(asc(portfolioAssetAllocation.assetKey));
+      expect(allocation.map((asset) => ({ assetKey: asset.assetKey, portfolioWeight: asset.portfolioWeight }))).toEqual([
+        { assetKey: "bitbank:spot_account:crypto:BTC", portfolioWeight: "0.666666666666666667" },
+        { assetKey: "bitbank:spot_account:crypto:ETH", portfolioWeight: "0.333333333333333333" },
       ]);
     });
   });
