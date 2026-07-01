@@ -1,9 +1,10 @@
 import type { BitbankCredentials } from "../../config/secrets.js";
 import { ZodError } from "zod";
 import type { ZodIssue } from "zod";
+import { BitbankHttpClientError } from "./client.js";
 import type { BitbankHttpClient } from "./client.js";
 import { mapBitbankAssetsToHoldings } from "./mapping.js";
-import type { HoldingSnapshot, SourceObservationError } from "./types.js";
+import type { BitbankHttpEndpoint, BitbankHttpErrorMetadata, HoldingSnapshot, SourceObservationError } from "./types.js";
 
 type CollectInput = {
   credentials: BitbankCredentials;
@@ -33,7 +34,26 @@ export type ScopeObservationResult =
       holdings: [];
     };
 
-const normalizeBitbankError = (code: number): SourceObservationError => {
+const metadataForBitbankError = (
+  endpoint: BitbankHttpEndpoint,
+  code: number,
+  metadata?: BitbankHttpErrorMetadata,
+): BitbankHttpErrorMetadata =>
+  metadata ?? {
+    endpoint,
+    httpStatus: 200,
+    bitbankErrorCode: code,
+    normalizedErrorCode: code === 10009 ? "rate_limited" : "bitbank_api_error",
+    retryable: code === 10009,
+    category: "api",
+  };
+
+const normalizeBitbankError = (
+  endpoint: BitbankHttpEndpoint,
+  code: number,
+  metadata?: BitbankHttpErrorMetadata,
+): SourceObservationError => {
+  const safeMetadata = metadataForBitbankError(endpoint, code, metadata);
   if (code === 10009) {
     return {
       code: "rate_limited",
@@ -41,15 +61,17 @@ const normalizeBitbankError = (code: number): SourceObservationError => {
       message: "bitbank rate limit exceeded",
       retryable: true,
       category: "api",
+      metadata: safeMetadata,
     };
   }
 
   return {
-    code: "bitbank_api_error",
+    code: safeMetadata.normalizedErrorCode,
     rawErrorCode: String(code),
     message: "bitbank API returned an error",
-    retryable: false,
-    category: "api",
+    retryable: safeMetadata.retryable,
+    category: safeMetadata.category,
+    metadata: safeMetadata,
   };
 };
 
@@ -69,7 +91,44 @@ const summarizeZodError = (error: ZodError): string => {
   return uniqueMessages.slice(0, 8).join("; ");
 };
 
+const messageForMetadata = (metadata: BitbankHttpErrorMetadata, zodError?: ZodError): string => {
+  if (metadata.normalizedErrorCode === "rate_limited") {
+    return "bitbank rate limit exceeded";
+  }
+
+  if (metadata.normalizedErrorCode === "bitbank_network_error") {
+    return "bitbank request failed";
+  }
+
+  if (metadata.normalizedErrorCode === "bitbank_non_json_response") {
+    return "bitbank API response was not JSON";
+  }
+
+  if (metadata.normalizedErrorCode === "bitbank_response_contract_error") {
+    const detail = zodError === undefined ? "" : summarizeZodError(zodError);
+    return `bitbank API response did not match the expected schema${detail === "" ? "" : `: ${detail}`}`;
+  }
+
+  if (metadata.normalizedErrorCode === "bitbank_http_error") {
+    const status = metadata.httpStatus === undefined ? "" : ` (${metadata.httpStatus})`;
+    return `bitbank API returned an HTTP error${status}`;
+  }
+
+  return "bitbank API returned an error";
+};
+
 const normalizeUnexpectedError = (error: unknown): SourceObservationError => {
+  if (error instanceof BitbankHttpClientError) {
+    return {
+      code: error.metadata.normalizedErrorCode,
+      ...(error.metadata.bitbankErrorCode === undefined ? {} : { rawErrorCode: String(error.metadata.bitbankErrorCode) }),
+      message: messageForMetadata(error.metadata, error.zodError),
+      retryable: error.metadata.retryable,
+      category: error.metadata.category,
+      metadata: error.metadata,
+    };
+  }
+
   if (error instanceof ZodError) {
     const detail = summarizeZodError(error);
     return {
@@ -81,8 +140,8 @@ const normalizeUnexpectedError = (error: unknown): SourceObservationError => {
   }
 
   return {
-    code: "bitbank_request_failed",
-    message: error instanceof Error ? error.message : "bitbank request failed",
+    code: "bitbank_network_error",
+    message: "bitbank request failed",
     retryable: true,
     category: "network",
   };
@@ -115,7 +174,7 @@ export const collectBitbankSpotAccount = async ({
         scopeId: "bitbank:spot_account",
         observedAt: now,
         status: "failed",
-        error: normalizeBitbankError(assetsResponse.data.code),
+        error: normalizeBitbankError("GET /v1/user/assets", assetsResponse.data.code, assetsResponse.metadata),
         holdings: [],
       };
     }
@@ -126,7 +185,7 @@ export const collectBitbankSpotAccount = async ({
         scopeId: "bitbank:spot_account",
         observedAt: now,
         status: "failed",
-        error: normalizeBitbankError(tickersResponse.data.code),
+        error: normalizeBitbankError("GET /tickers_jpy", tickersResponse.data.code, tickersResponse.metadata),
         holdings: [],
       };
     }

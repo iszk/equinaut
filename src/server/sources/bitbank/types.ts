@@ -19,6 +19,19 @@ export type BitbankTicker = {
   timestamp: number;
 };
 
+export type SourceObservationErrorCategory = "configuration" | "api" | "valuation" | "network" | "contract";
+
+export type BitbankHttpEndpoint = "GET /v1/user/assets" | "GET /tickers_jpy";
+
+export type BitbankHttpErrorMetadata = {
+  endpoint: BitbankHttpEndpoint;
+  httpStatus?: number;
+  bitbankErrorCode?: number;
+  normalizedErrorCode: string;
+  retryable: boolean;
+  category: SourceObservationErrorCategory;
+};
+
 export type BitbankSuccessResponse<T> = {
   success: 1;
   data: T;
@@ -29,6 +42,7 @@ export type BitbankErrorResponse = {
   data: {
     code: number;
   };
+  metadata?: BitbankHttpErrorMetadata;
 };
 
 export type BitbankAssetsResponse =
@@ -67,5 +81,6 @@ export type SourceObservationError = {
   rawErrorCode?: string;
   message: string;
   retryable: boolean;
-  category: "configuration" | "api" | "valuation" | "network" | "contract";
+  category: SourceObservationErrorCategory;
+  metadata?: BitbankHttpErrorMetadata;
 };
