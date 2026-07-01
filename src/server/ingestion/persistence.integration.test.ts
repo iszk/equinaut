@@ -75,6 +75,8 @@ maybeDescribe("persistBitbankSpotObservation integration", () => {
         fxToJpy: "1.000000000000000000",
         valueJpy: "1000.000000000000000000",
       });
+      expect(snapshot?.observedAt.toISOString()).toBe("2026-06-17T12:34:56.000Z");
+      expect(snapshot?.observedAt.toISOString()).toBe(observation?.observedAt.toISOString());
 
       expect(schemaName).toMatch(/^test_[a-f0-9]{16}$/u);
     });

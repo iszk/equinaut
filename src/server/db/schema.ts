@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, numeric, pgTable, pgView, text, timestamp, uuid, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { check, foreignKey, index, jsonb, numeric, pgTable, pgView, text, timestamp, uuid, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const sourceAccounts = pgTable(
   "source_accounts",
@@ -72,6 +72,7 @@ export const scopeObservations = pgTable(
   (table) => ({
     statusCheck: check("scope_observations_status_check", sql`${table.status} in ('success', 'partial', 'failed', 'skipped')`),
     scopeObservedIdx: index("scope_observations_scope_observed_idx").on(table.observationScopeId, table.observedAt),
+    idObservedAtUnique: uniqueIndex("scope_observations_id_observed_at_unique").on(table.id, table.observedAt),
     scopeLatestObservationIdx: index("scope_observations_latest_observation_idx")
       .on(table.observationScopeId, table.observedAt.desc(), table.id.desc())
       .where(sql`${table.voidedAt} is null`),
@@ -85,7 +86,8 @@ export const assetSnapshots = pgTable(
   "asset_snapshots",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    scopeObservationId: uuid("scope_observation_id").notNull().references(() => scopeObservations.id),
+    scopeObservationId: uuid("scope_observation_id").notNull(),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
     assetKey: text("asset_key").notNull(),
     assetType: text("asset_type").notNull(),
     symbol: text("symbol").notNull(),
@@ -99,7 +101,15 @@ export const assetSnapshots = pgTable(
   },
   (table) => ({
     assetTypeCheck: check("asset_snapshots_asset_type_check", sql`${table.assetType} in ('cash', 'crypto', 'stock', 'fund')`),
+    scopeObservationObservedAtFk: foreignKey({
+      columns: [table.scopeObservationId, table.observedAt],
+      foreignColumns: [scopeObservations.id, scopeObservations.observedAt],
+      name: "asset_snapshots_scope_observation_observed_at_fk",
+    }),
     observationAssetIdx: index("asset_snapshots_observation_asset_idx").on(table.scopeObservationId, table.assetKey),
+    observationObservedIdx: index("asset_snapshots_observation_observed_idx").on(table.scopeObservationId, table.observedAt),
+    observedIdx: index("asset_snapshots_observed_idx").on(table.observedAt.desc()),
+    assetObservedIdx: index("asset_snapshots_asset_observed_idx").on(table.assetKey, table.observedAt.desc()),
   }),
 );
 
