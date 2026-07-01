@@ -160,7 +160,7 @@ describe("persistBitbankSpotObservation", () => {
             endpoint: "GET /v1/user/assets",
             httpStatus: 429,
             bitbankErrorCode: 10009,
-            normalizedErrorCode: "rate_limited",
+            normalizedErrorCode: "bitbank_http_error",
             retryable: false,
             category: "contract",
           },

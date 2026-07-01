@@ -98,7 +98,7 @@ const metadataFor = (error: SourceObservationError): ScopeObservationErrorMetada
     endpoint: error.metadata.endpoint,
     ...(error.metadata.httpStatus === undefined ? {} : { http_status: error.metadata.httpStatus }),
     ...(error.metadata.bitbankErrorCode === undefined ? {} : { bitbank_error_code: error.metadata.bitbankErrorCode }),
-    normalized_error_code: error.metadata.normalizedErrorCode,
+    normalized_error_code: error.code,
     retryable: error.retryable,
     category: error.category,
   };
