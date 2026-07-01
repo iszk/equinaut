@@ -51,7 +51,9 @@ const createRecordingDriver = () => {
       return { id: "observation-id" };
     },
     async createAssetSnapshots(input) {
-      calls.push(`createAssetSnapshots:${input.scopeObservationId}:${input.holdings.map((holding) => holding.assetKey).join(",")}`);
+      calls.push(
+        `createAssetSnapshots:${input.scopeObservationId}:${input.observedAt.toISOString()}:${input.holdings.map((holding) => holding.assetKey).join(",")}`,
+      );
     },
   };
   return { calls, driver };
@@ -77,7 +79,7 @@ describe("persistBitbankSpotObservation", () => {
       "upsertObservationScope:source-account-id:bitbank:spot_account:spot_account",
       "createIngestionRun:source-account-id:success:none",
       "createScopeObservation:run-id:scope-id:success:2026-06-17T12:34:56.000Z:none:none:none",
-      "createAssetSnapshots:observation-id:bitbank:spot_account:cash:JPY",
+      "createAssetSnapshots:observation-id:2026-06-17T12:34:56.000Z:bitbank:spot_account:cash:JPY",
     ]);
   });
 
@@ -107,7 +109,7 @@ describe("persistBitbankSpotObservation", () => {
       "upsertObservationScope:source-account-id:bitbank:spot_account:spot_account",
       "createIngestionRun:source-account-id:partial:missing_ticker",
       "createScopeObservation:run-id:scope-id:partial:2026-06-17T12:34:56.000Z:missing_ticker:raw-1:false",
-      "createAssetSnapshots:observation-id:bitbank:spot_account:cash:JPY",
+      "createAssetSnapshots:observation-id:2026-06-17T12:34:56.000Z:bitbank:spot_account:cash:JPY",
     ]);
   });
 

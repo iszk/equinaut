@@ -43,6 +43,7 @@ export type ScopeObservationInput = {
 
 export type AssetSnapshotsInput = {
   scopeObservationId: string;
+  observedAt: Date;
   holdings: HoldingSnapshot[];
 };
 
@@ -115,7 +116,11 @@ export const persistBitbankSpotObservation = async ({
     });
 
     if (observation.status !== "failed" && observation.holdings.length > 0) {
-      await tx.createAssetSnapshots({ scopeObservationId: scopeObservation.id, holdings: observation.holdings });
+      await tx.createAssetSnapshots({
+        scopeObservationId: scopeObservation.id,
+        observedAt: observation.observedAt,
+        holdings: observation.holdings,
+      });
     }
   });
 };
@@ -207,6 +212,7 @@ const createDriverForExecutor = (executor: DrizzleExecutor): IngestionPersistenc
 
     const rows: InferInsertModel<typeof assetSnapshots>[] = input.holdings.map((holding) => ({
       scopeObservationId: input.scopeObservationId,
+      observedAt: input.observedAt,
       assetKey: holding.assetKey,
       assetType: holding.assetType,
       symbol: holding.symbol,

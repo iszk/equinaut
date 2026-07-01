@@ -53,6 +53,67 @@ maybeDescribe("portfolio dashboard views integration", () => {
     });
   });
 
+  it("rejects asset snapshots whose observed_at differs from the parent scope observation", async () => {
+    await withTestDatabase(async ({ db, schemaName }) => {
+      const constraints = await db.execute<{ conname: string }>(sql`
+        SELECT conname
+        FROM pg_constraint
+        WHERE connamespace = ${schemaName}::regnamespace
+          AND conname = 'asset_snapshots_scope_observation_observed_at_fk'
+      `);
+      expect(constraints).toHaveLength(1);
+
+      const observedAt = new Date("2026-06-18T00:00:00.000Z");
+      const [sourceAccount] = await db
+        .insert(sourceAccounts)
+        .values({ sourceId: "bitbank", displayName: "bitbank" })
+        .returning({ id: sourceAccounts.id });
+      if (sourceAccount === undefined) {
+        throw new Error("source account insert did not return an id");
+      }
+
+      const [observationScope] = await db
+        .insert(observationScopes)
+        .values({ sourceAccountId: sourceAccount.id, scopeId: "bitbank:spot_account", scopeType: "spot_account" })
+        .returning({ id: observationScopes.id });
+      const [ingestionRun] = await db
+        .insert(ingestionRuns)
+        .values({ sourceAccountId: sourceAccount.id, status: "success", finishedAt: observedAt })
+        .returning({ id: ingestionRuns.id });
+      if (observationScope === undefined || ingestionRun === undefined) {
+        throw new Error("observation setup insert did not return an id");
+      }
+
+      const [scopeObservation] = await db
+        .insert(scopeObservations)
+        .values({
+          ingestionRunId: ingestionRun.id,
+          observationScopeId: observationScope.id,
+          status: "success",
+          observedAt,
+        })
+        .returning({ id: scopeObservations.id });
+      if (scopeObservation === undefined) {
+        throw new Error("scope observation insert did not return an id");
+      }
+
+      await expect(
+        db.insert(assetSnapshots).values({
+          scopeObservationId: scopeObservation.id,
+          observedAt: new Date("2026-06-18T00:00:01.000Z"),
+          assetKey: "bitbank:spot_account:crypto:BTC",
+          assetType: "crypto",
+          symbol: "BTC",
+          quantity: "1",
+          price: "3000",
+          priceCurrency: "JPY",
+          fxToJpy: "1",
+          valueJpy: "3000",
+        }),
+      ).rejects.toThrow();
+    });
+  });
+
   it("exposes latest assets, value timeseries, and latest allocation for Grafana queries", async () => {
     await withTestDatabase(async ({ db }) => {
       const driver = createDrizzleIngestionPersistenceDriver(db);
@@ -368,6 +429,7 @@ maybeDescribe("portfolio dashboard views integration", () => {
 
         await db.insert(assetSnapshots).values({
           scopeObservationId: scopeObservation.id,
+          observedAt,
           assetKey: `bitbank:spot_account:crypto:${scope.symbol}`,
           assetType: "crypto",
           symbol: scope.symbol,
