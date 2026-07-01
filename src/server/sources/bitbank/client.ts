@@ -146,7 +146,7 @@ const parseJsonBody = async (response: Response, endpoint: BitbankHttpEndpoint):
         endpoint,
         httpStatus: response.status,
         normalizedErrorCode: "bitbank_non_json_response",
-        retryable: response.status >= 500,
+        retryable: false,
         category: "contract",
       }),
     );
