@@ -21,6 +21,8 @@ ALTER TABLE "asset_snapshots" ADD CONSTRAINT "asset_snapshots_scope_observation_
 --> statement-breakpoint
 CREATE INDEX "asset_snapshots_observed_idx" ON "asset_snapshots" USING btree ("observed_at" DESC NULLS LAST);
 --> statement-breakpoint
+CREATE INDEX "asset_snapshots_observation_observed_idx" ON "asset_snapshots" USING btree ("scope_observation_id","observed_at");
+--> statement-breakpoint
 CREATE INDEX "asset_snapshots_asset_observed_idx" ON "asset_snapshots" USING btree ("asset_key","observed_at" DESC NULLS LAST);
 --> statement-breakpoint
 CREATE VIEW "portfolio_latest_assets" AS

@@ -125,6 +125,27 @@
           "method": "btree",
           "with": {}
         },
+        "asset_snapshots_observation_observed_idx": {
+          "name": "asset_snapshots_observation_observed_idx",
+          "columns": [
+            {
+              "expression": "scope_observation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "observed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "asset_snapshots_asset_observed_idx": {
           "name": "asset_snapshots_asset_observed_idx",
           "columns": [

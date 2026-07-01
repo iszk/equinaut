@@ -107,6 +107,7 @@ export const assetSnapshots = pgTable(
       name: "asset_snapshots_scope_observation_observed_at_fk",
     }),
     observationAssetIdx: index("asset_snapshots_observation_asset_idx").on(table.scopeObservationId, table.assetKey),
+    observationObservedIdx: index("asset_snapshots_observation_observed_idx").on(table.scopeObservationId, table.observedAt),
     observedIdx: index("asset_snapshots_observed_idx").on(table.observedAt.desc()),
     assetObservedIdx: index("asset_snapshots_asset_observed_idx").on(table.assetKey, table.observedAt.desc()),
   }),
