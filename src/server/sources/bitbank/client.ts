@@ -224,7 +224,7 @@ const parseBitbankJsonBody = async (response: Response, endpoint: BitbankHttpEnd
 
 const parseAssetsResponse = async (
   response: Response,
-  endpoint: "GET /v1/user/assets",
+  endpoint: "GET /user/assets",
 ): Promise<BitbankAssetsResponse> => {
   const body = await parseBitbankJsonBody(response, endpoint);
   const result = assetsResponseSchema.safeParse(body);
@@ -284,7 +284,7 @@ export const createBitbankHttpClient = ({
 }: BitbankClientInput): BitbankHttpClient => ({
   async getUserAssets(): Promise<BitbankAssetsResponse> {
     const requestPathWithQuery = "/v1/user/assets";
-    const endpoint: BitbankHttpEndpoint = "GET /v1/user/assets";
+    const endpoint: BitbankHttpEndpoint = "GET /user/assets";
     const headers = createBitbankAuthHeaders({
       apiKey: credentials.apiKey,
       apiSecret: credentials.apiSecret,

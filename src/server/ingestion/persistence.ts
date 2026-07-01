@@ -56,13 +56,15 @@ export type IngestionPersistenceDriver = {
   createAssetSnapshots(input: AssetSnapshotsInput): Promise<void>;
 };
 
+type SourceErrorMetadata = NonNullable<SourceObservationError["metadata"]>;
+
 export type ScopeObservationErrorMetadata = {
-  endpoint: string;
+  endpoint: SourceErrorMetadata["endpoint"];
   http_status?: number;
   bitbank_error_code?: number;
   normalized_error_code: string;
   retryable: boolean;
-  category: string;
+  category: SourceObservationError["category"];
 };
 
 type DrizzleTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];

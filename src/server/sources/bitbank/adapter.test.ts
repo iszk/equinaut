@@ -160,7 +160,7 @@ describe("collectBitbankSpotAccount", () => {
     const client: BitbankHttpClient = {
       async getUserAssets() {
         throw new BitbankHttpClientError("bitbank API returned an HTTP error", {
-          endpoint: "GET /v1/user/assets",
+          endpoint: "GET /user/assets",
           httpStatus: 500,
           normalizedErrorCode: "bitbank_http_error",
           retryable: true,
@@ -185,7 +185,7 @@ describe("collectBitbankSpotAccount", () => {
         retryable: true,
         category: "api",
         metadata: {
-          endpoint: "GET /v1/user/assets",
+          endpoint: "GET /user/assets",
           httpStatus: 500,
           normalizedErrorCode: "bitbank_http_error",
           retryable: true,

@@ -21,7 +21,7 @@ export type BitbankTicker = {
 
 export type SourceObservationErrorCategory = "configuration" | "api" | "valuation" | "network" | "contract";
 
-export type BitbankHttpEndpoint = "GET /v1/user/assets" | "GET /tickers_jpy";
+export type BitbankHttpEndpoint = "GET /user/assets" | "GET /tickers_jpy";
 
 export type BitbankHttpErrorMetadata = {
   endpoint: BitbankHttpEndpoint;

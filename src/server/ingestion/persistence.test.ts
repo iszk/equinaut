@@ -157,7 +157,7 @@ describe("persistBitbankSpotObservation", () => {
           retryable: true,
           category: "api",
           metadata: {
-            endpoint: "GET /v1/user/assets",
+            endpoint: "GET /user/assets",
             httpStatus: 429,
             bitbankErrorCode: 10009,
             normalizedErrorCode: "bitbank_http_error",
@@ -170,7 +170,7 @@ describe("persistBitbankSpotObservation", () => {
     });
 
     expect(scopeObservations[0]?.metadata).toEqual({
-      endpoint: "GET /v1/user/assets",
+      endpoint: "GET /user/assets",
       http_status: 429,
       bitbank_error_code: 10009,
       normalized_error_code: "rate_limited",

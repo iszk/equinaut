@@ -174,7 +174,7 @@ export const collectBitbankSpotAccount = async ({
         scopeId: "bitbank:spot_account",
         observedAt: now,
         status: "failed",
-        error: normalizeBitbankError("GET /v1/user/assets", assetsResponse.data.code, assetsResponse.metadata),
+        error: normalizeBitbankError("GET /user/assets", assetsResponse.data.code, assetsResponse.metadata),
         holdings: [],
       };
     }
