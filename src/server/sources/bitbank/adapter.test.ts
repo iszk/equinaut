@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { collectBitbankSpotAccount } from "./adapter.js";
+import { BitbankHttpClientError } from "./client.js";
 import type { BitbankHttpClient } from "./client.js";
 
 const successfulClient: BitbankHttpClient = {
@@ -130,7 +131,7 @@ describe("collectBitbankSpotAccount", () => {
   it("returns a structured failed result when the HTTP client throws", async () => {
     const client: BitbankHttpClient = {
       async getUserAssets() {
-        throw new Error("network unavailable");
+        throw new Error("network unavailable Authorization: Bearer secret-token");
       },
       async getTickersJpy() {
         return { success: 1, data: {} };
@@ -145,12 +146,53 @@ describe("collectBitbankSpotAccount", () => {
     expect(result.status).toBe("failed");
     if (result.status === "failed") {
       expect(result.error).toEqual({
-        code: "bitbank_request_failed",
-        message: "network unavailable",
+        code: "bitbank_network_error",
+        message: "bitbank request failed",
         retryable: true,
         category: "network",
       });
+      expect(result.error.message).not.toContain("secret-token");
       expect(result.holdings).toEqual([]);
+    }
+  });
+
+  it("preserves HTTP error metadata from the client without raw response body", async () => {
+    const client: BitbankHttpClient = {
+      async getUserAssets() {
+        throw new BitbankHttpClientError("bitbank API returned an HTTP error", {
+          endpoint: "GET /user/assets",
+          httpStatus: 500,
+          normalizedErrorCode: "bitbank_http_error",
+          retryable: true,
+          category: "api",
+        });
+      },
+      async getTickersJpy() {
+        return { success: 1, data: {} };
+      },
+    };
+
+    const result = await collectBitbankSpotAccount({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      client,
+    });
+
+    expect(result.status).toBe("failed");
+    if (result.status === "failed") {
+      expect(result.error).toEqual({
+        code: "bitbank_http_error",
+        message: "bitbank API returned an HTTP error (500)",
+        retryable: true,
+        category: "api",
+        metadata: {
+          endpoint: "GET /user/assets",
+          httpStatus: 500,
+          normalizedErrorCode: "bitbank_http_error",
+          retryable: true,
+          category: "api",
+        },
+      });
+      expect(result).not.toHaveProperty("raw");
     }
   });
 

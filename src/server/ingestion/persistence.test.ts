@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { persistBitbankSpotObservation } from "./persistence.js";
-import type { IngestionPersistenceDriver } from "./persistence.js";
+import type { IngestionPersistenceDriver, ScopeObservationInput } from "./persistence.js";
 import type { HoldingSnapshot } from "../sources/bitbank/types.js";
 
 const observedAt = new Date("2026-06-17T12:34:56.000Z");
@@ -27,6 +27,7 @@ const jpyHolding: HoldingSnapshot = {
 
 const createRecordingDriver = () => {
   const calls: string[] = [];
+  const scopeObservations: ScopeObservationInput[] = [];
   const driver: IngestionPersistenceDriver = {
     async transaction<T>(fn: (tx: IngestionPersistenceDriver) => Promise<T>): Promise<T> {
       calls.push("transaction");
@@ -45,6 +46,7 @@ const createRecordingDriver = () => {
       return { id: "run-id" };
     },
     async createScopeObservation(input) {
+      scopeObservations.push(input);
       calls.push(
         `createScopeObservation:${input.ingestionRunId}:${input.observationScopeId}:${input.status}:${input.observedAt.toISOString()}:${input.errorCode ?? "none"}:${input.rawErrorCode ?? "none"}:${input.retryable ?? "none"}`,
       );
@@ -56,7 +58,7 @@ const createRecordingDriver = () => {
       );
     },
   };
-  return { calls, driver };
+  return { calls, driver, scopeObservations };
 };
 
 describe("persistBitbankSpotObservation", () => {
@@ -139,5 +141,43 @@ describe("persistBitbankSpotObservation", () => {
       "createIngestionRun:source-account-id:failed:configuration_error",
       "createScopeObservation:run-id:scope-id:failed:2026-06-17T12:34:56.000Z:configuration_error:none:false",
     ]);
+  });
+
+  it("persists only safe structured error metadata on failed observations", async () => {
+    const { driver, scopeObservations } = createRecordingDriver();
+
+    await persistBitbankSpotObservation({
+      driver,
+      observation: {
+        scopeId: "bitbank:spot_account",
+        observedAt,
+        status: "failed",
+        error: {
+          code: "rate_limited",
+          rawErrorCode: "10009",
+          message: "bitbank rate limit exceeded",
+          retryable: true,
+          category: "api",
+          metadata: {
+            endpoint: "GET /user/assets",
+            httpStatus: 429,
+            bitbankErrorCode: 10009,
+            normalizedErrorCode: "bitbank_http_error",
+            retryable: false,
+            category: "contract",
+          },
+        },
+        holdings: [],
+      },
+    });
+
+    expect(scopeObservations[0]?.metadata).toEqual({
+      endpoint: "GET /user/assets",
+      http_status: 429,
+      bitbank_error_code: 10009,
+      normalized_error_code: "rate_limited",
+      retryable: true,
+      category: "api",
+    });
   });
 });

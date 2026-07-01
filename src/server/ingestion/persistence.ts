@@ -39,6 +39,7 @@ export type ScopeObservationInput = {
   rawErrorCode?: string;
   errorMessage?: string;
   retryable?: boolean;
+  metadata?: ScopeObservationErrorMetadata;
 };
 
 export type AssetSnapshotsInput = {
@@ -54,6 +55,17 @@ export type IngestionPersistenceDriver = {
   createIngestionRun(input: IngestionRunInput): Promise<PersistedId>;
   createScopeObservation(input: ScopeObservationInput): Promise<PersistedId>;
   createAssetSnapshots(input: AssetSnapshotsInput): Promise<void>;
+};
+
+type SourceErrorMetadata = NonNullable<SourceObservationError["metadata"]>;
+
+export type ScopeObservationErrorMetadata = {
+  endpoint: SourceErrorMetadata["endpoint"];
+  http_status?: number;
+  bitbank_error_code?: number;
+  normalized_error_code: string;
+  retryable: boolean;
+  category: SourceObservationError["category"];
 };
 
 type DrizzleTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -80,6 +92,21 @@ const errorFor = (observation: ScopeObservationResult): SourceObservationError |
   return observation.error;
 };
 
+const metadataFor = (error: SourceObservationError): ScopeObservationErrorMetadata | undefined => {
+  if (error.metadata === undefined) {
+    return undefined;
+  }
+
+  return {
+    endpoint: error.metadata.endpoint,
+    ...(error.metadata.httpStatus === undefined ? {} : { http_status: error.metadata.httpStatus }),
+    ...(error.metadata.bitbankErrorCode === undefined ? {} : { bitbank_error_code: error.metadata.bitbankErrorCode }),
+    normalized_error_code: error.code,
+    retryable: error.retryable,
+    category: error.category,
+  };
+};
+
 export const persistBitbankSpotObservation = async ({
   driver,
   observation,
@@ -95,6 +122,7 @@ export const persistBitbankSpotObservation = async ({
       scopeType: scopeTypeFor(observation.scopeId),
     });
     const error = errorFor(observation);
+    const errorMetadata = error === undefined ? undefined : metadataFor(error);
     const ingestionRun = await tx.createIngestionRun({
       sourceAccountId: sourceAccount.id,
       status: observation.status,
@@ -112,6 +140,7 @@ export const persistBitbankSpotObservation = async ({
             ...(error.rawErrorCode === undefined ? {} : { rawErrorCode: error.rawErrorCode }),
             errorMessage: error.message,
             retryable: error.retryable,
+            ...(errorMetadata === undefined ? {} : { metadata: errorMetadata }),
           }),
     });
 
@@ -199,6 +228,7 @@ const createDriverForExecutor = (executor: DrizzleExecutor): IngestionPersistenc
         ...(input.rawErrorCode === undefined ? {} : { rawErrorCode: input.rawErrorCode }),
         ...(input.errorMessage === undefined ? {} : { errorMessage: input.errorMessage }),
         ...(input.retryable === undefined ? {} : { retryable: input.retryable }),
+        ...(input.metadata === undefined ? {} : { metadata: input.metadata }),
       })
       .returning({ id: scopeObservations.id });
 
