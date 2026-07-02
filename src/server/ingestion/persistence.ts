@@ -7,8 +7,7 @@ import {
   scopeObservations,
   sourceAccounts,
 } from "../db/schema.js";
-import type { ScopeObservationResult } from "../sources/bitbank/adapter.js";
-import type { HoldingSnapshot, SourceObservationError } from "../sources/bitbank/types.js";
+import type { HoldingSnapshot, ScopeObservationResult, SourceObservationError, SourceErrorMetadata } from "./source-types.js";
 
 export type PersistedId = { id: string };
 
@@ -39,7 +38,7 @@ export type ScopeObservationInput = {
   rawErrorCode?: string;
   errorMessage?: string;
   retryable?: boolean;
-  metadata?: ScopeObservationErrorMetadata;
+  metadata?: Record<string, unknown>;
 };
 
 export type AssetSnapshotsInput = {
@@ -57,12 +56,11 @@ export type IngestionPersistenceDriver = {
   createAssetSnapshots(input: AssetSnapshotsInput): Promise<void>;
 };
 
-type SourceErrorMetadata = NonNullable<SourceObservationError["metadata"]>;
-
 export type ScopeObservationErrorMetadata = {
-  endpoint: SourceErrorMetadata["endpoint"];
+  endpoint: string;
   http_status?: number;
   bitbank_error_code?: number;
+  raw_error_code?: string;
   normalized_error_code: string;
   retryable: boolean;
   category: SourceObservationError["category"];
@@ -71,14 +69,23 @@ export type ScopeObservationErrorMetadata = {
 type DrizzleTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type DrizzleExecutor = Db | DrizzleTransaction;
 
-const sourceAccountFor = () => ({
-  sourceId: "bitbank",
-  displayName: "bitbank",
-});
+export type PersistSourceObservationInput = {
+  sourceId: string;
+  displayName: string;
+  observation: ScopeObservationResult;
+};
 
-const scopeTypeFor = (scopeId: ScopeObservationResult["scopeId"]): string => {
+const scopeTypeFor = (scopeId: string): string => {
   if (scopeId === "bitbank:spot_account") {
     return "spot_account";
+  }
+
+  if (scopeId === "bitflyer:spot_account") {
+    return "spot_account";
+  }
+
+  if (scopeId === "bitflyer:cfd_account") {
+    return "cfd_account";
   }
 
   return scopeId;
@@ -92,30 +99,42 @@ const errorFor = (observation: ScopeObservationResult): SourceObservationError |
   return observation.error;
 };
 
+const bitbankErrorCodeFrom = (metadata: SourceErrorMetadata): number | undefined => {
+  if (!("bitbankErrorCode" in metadata)) {
+    return undefined;
+  }
+
+  const value = metadata.bitbankErrorCode;
+  return typeof value === "number" ? value : undefined;
+};
+
 const metadataFor = (error: SourceObservationError): ScopeObservationErrorMetadata | undefined => {
   if (error.metadata === undefined) {
     return undefined;
   }
 
+  const bitbankErrorCode = bitbankErrorCodeFrom(error.metadata);
   return {
     endpoint: error.metadata.endpoint,
     ...(error.metadata.httpStatus === undefined ? {} : { http_status: error.metadata.httpStatus }),
-    ...(error.metadata.bitbankErrorCode === undefined ? {} : { bitbank_error_code: error.metadata.bitbankErrorCode }),
+    ...(bitbankErrorCode === undefined ? {} : { bitbank_error_code: bitbankErrorCode }),
+    ...(error.metadata.rawErrorCode === undefined ? {} : { raw_error_code: error.metadata.rawErrorCode }),
     normalized_error_code: error.code,
     retryable: error.retryable,
     category: error.category,
   };
 };
 
-export const persistBitbankSpotObservation = async ({
+export const persistSourceObservation = async ({
   driver,
+  sourceId,
+  displayName,
   observation,
 }: {
   driver: IngestionPersistenceDriver;
-  observation: ScopeObservationResult;
-}): Promise<void> => {
+} & PersistSourceObservationInput): Promise<void> => {
   await driver.transaction(async (tx) => {
-    const sourceAccount = await tx.upsertSourceAccount(sourceAccountFor());
+    const sourceAccount = await tx.upsertSourceAccount({ sourceId, displayName });
     const observationScope = await tx.upsertObservationScope({
       sourceAccountId: sourceAccount.id,
       scopeId: observation.scopeId,
@@ -142,6 +161,7 @@ export const persistBitbankSpotObservation = async ({
             retryable: error.retryable,
             ...(errorMetadata === undefined ? {} : { metadata: errorMetadata }),
           }),
+      ...(observation.metadata === undefined ? {} : { metadata: observation.metadata }),
     });
 
     if (observation.status !== "failed" && observation.holdings.length > 0) {
@@ -151,6 +171,21 @@ export const persistBitbankSpotObservation = async ({
         holdings: observation.holdings,
       });
     }
+  });
+};
+
+export const persistBitbankSpotObservation = async ({
+  driver,
+  observation,
+}: {
+  driver: IngestionPersistenceDriver;
+  observation: ScopeObservationResult;
+}): Promise<void> => {
+  await persistSourceObservation({
+    driver,
+    sourceId: "bitbank",
+    displayName: "bitbank",
+    observation,
   });
 };
 

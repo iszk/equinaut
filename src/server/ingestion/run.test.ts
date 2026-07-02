@@ -1,34 +1,57 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const loadBitbankCredentials = vi.fn();
+const loadBitflyerCredentials = vi.fn();
 const createBitbankHttpClient = vi.fn();
+const createBitflyerHttpClient = vi.fn();
 const collectBitbankSpotAccount = vi.fn();
+const collectBitflyerAccounts = vi.fn();
 const createDbClient = vi.fn();
 const createDrizzleIngestionPersistenceDriver = vi.fn();
 const persistBitbankSpotObservation = vi.fn();
+const persistSourceObservation = vi.fn();
 
-vi.mock("../config/secrets.js", () => ({ loadBitbankCredentials }));
+vi.mock("../config/secrets.js", () => ({ loadBitbankCredentials, loadBitflyerCredentials }));
 vi.mock("../sources/bitbank/client.js", () => ({ createBitbankHttpClient }));
+vi.mock("../sources/bitflyer/client.js", () => ({ createBitflyerHttpClient }));
 vi.mock("../sources/bitbank/adapter.js", () => ({ collectBitbankSpotAccount }));
+vi.mock("../sources/bitflyer/adapter.js", () => ({ collectBitflyerAccounts }));
 vi.mock("../db/index.js", () => ({ createDbClient }));
-vi.mock("./persistence.js", () => ({ createDrizzleIngestionPersistenceDriver, persistBitbankSpotObservation }));
+vi.mock("./persistence.js", () => ({ createDrizzleIngestionPersistenceDriver, persistBitbankSpotObservation, persistSourceObservation }));
 
-const { runBitbankIngestion } = await import("./run.js");
+const { runBitbankIngestion, runBitflyerIngestion } = await import("./run.js");
 
 describe("runBitbankIngestion", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     loadBitbankCredentials.mockReturnValue({ status: "available", apiKey: "key", apiSecret: "secret" });
+    loadBitflyerCredentials.mockReturnValue({ status: "available", apiKey: "key", apiSecret: "secret" });
     createBitbankHttpClient.mockReturnValue({ client: true });
+    createBitflyerHttpClient.mockReturnValue({ client: "bitflyer" });
     collectBitbankSpotAccount.mockResolvedValue({
       scopeId: "bitbank:spot_account",
       observedAt: new Date("2026-06-17T12:34:56.000Z"),
       status: "success",
       holdings: [],
     });
+    collectBitflyerAccounts.mockResolvedValue([
+      {
+        scopeId: "bitflyer:spot_account",
+        observedAt: new Date("2026-07-02T00:00:00.000Z"),
+        status: "success",
+        holdings: [{ assetKey: "bitflyer:spot_account:cash:JPY" }],
+      },
+      {
+        scopeId: "bitflyer:cfd_account",
+        observedAt: new Date("2026-07-02T00:00:00.000Z"),
+        status: "success",
+        holdings: [{ assetKey: "bitflyer:cfd_account:cash:JPY" }],
+      },
+    ]);
     createDbClient.mockReturnValue({ db: { db: true }, close: vi.fn().mockResolvedValue(undefined) });
     createDrizzleIngestionPersistenceDriver.mockReturnValue({ driver: true });
     persistBitbankSpotObservation.mockResolvedValue(undefined);
+    persistSourceObservation.mockResolvedValue(undefined);
   });
 
   it("returns the existing sanitized failure when bitbank credentials are missing", async () => {
@@ -119,6 +142,88 @@ describe("runBitbankIngestion", () => {
       status: "failed",
       message:
         "bitbank ingestion failed: bitbank_network_error - request failed Authorization: [REDACTED] Cookie=[REDACTED] apiKey=[REDACTED]",
+    });
+  });
+});
+
+describe("runBitflyerIngestion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    loadBitflyerCredentials.mockReturnValue({ status: "available", apiKey: "key", apiSecret: "secret" });
+    createBitflyerHttpClient.mockReturnValue({ client: "bitflyer" });
+    collectBitflyerAccounts.mockResolvedValue([
+      {
+        scopeId: "bitflyer:spot_account",
+        observedAt: new Date("2026-07-02T00:00:00.000Z"),
+        status: "success",
+        holdings: [{ assetKey: "bitflyer:spot_account:cash:JPY" }],
+      },
+      {
+        scopeId: "bitflyer:cfd_account",
+        observedAt: new Date("2026-07-02T00:00:00.000Z"),
+        status: "success",
+        holdings: [{ assetKey: "bitflyer:cfd_account:cash:JPY" }],
+      },
+    ]);
+    createDbClient.mockReturnValue({ db: { db: true }, close: vi.fn().mockResolvedValue(undefined) });
+    createDrizzleIngestionPersistenceDriver.mockReturnValue({ driver: true });
+    persistSourceObservation.mockResolvedValue(undefined);
+  });
+
+  it("returns a sanitized failure when bitflyer credentials are missing", async () => {
+    loadBitflyerCredentials.mockReturnValue({
+      status: "disabled",
+      reason: "missing bitflyer credentials",
+      missing: ["BITFLYER_API_KEY"],
+    });
+
+    await expect(runBitflyerIngestion()).resolves.toEqual({
+      status: "failed",
+      message: "bitflyer adapter disabled: missing credentials",
+    });
+    expect(createDbClient).not.toHaveBeenCalled();
+  });
+
+  it("persists both bitflyer scope observations and returns a success summary", async () => {
+    await expect(runBitflyerIngestion()).resolves.toEqual({
+      status: "success",
+      message:
+        "bitflyer ingestion succeeded: 2 holdings collected (bitflyer:spot_account:success:1, bitflyer:cfd_account:success:1)",
+    });
+    expect(persistSourceObservation).toHaveBeenCalledTimes(2);
+    expect(persistSourceObservation).toHaveBeenCalledWith({
+      driver: { driver: true },
+      sourceId: "bitflyer",
+      displayName: "bitFlyer",
+      observation: expect.objectContaining({ scopeId: "bitflyer:spot_account" }),
+    });
+  });
+
+  it("returns partial when one bitflyer scope fails", async () => {
+    collectBitflyerAccounts.mockResolvedValue([
+      {
+        scopeId: "bitflyer:spot_account",
+        observedAt: new Date("2026-07-02T00:00:00.000Z"),
+        status: "success",
+        holdings: [],
+      },
+      {
+        scopeId: "bitflyer:cfd_account",
+        observedAt: new Date("2026-07-02T00:00:00.000Z"),
+        status: "failed",
+        error: {
+          code: "bitflyer_network_error",
+          message: "request failed Authorization: Bearer CREDENTIAL",
+          retryable: true,
+          category: "network",
+        },
+        holdings: [],
+      },
+    ]);
+
+    await expect(runBitflyerIngestion()).resolves.toEqual({
+      status: "partial",
+      message: "bitflyer ingestion partial: bitflyer:spot_account:success:0, bitflyer:cfd_account:failed:bitflyer_network_error",
     });
   });
 });

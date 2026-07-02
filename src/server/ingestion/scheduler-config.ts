@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 
-const knownSourceIdSchema = z.enum(["bitbank"]);
+const knownSourceIdSchema = z.enum(["bitbank", "bitflyer"]);
 
 const rawSourceConfigSchema = z.object({
   id: knownSourceIdSchema,

@@ -36,6 +36,19 @@ sources:
     });
   });
 
+  it("accepts bitflyer as a known source id", () => {
+    expect(
+      parseSchedulerConfig(`
+scheduler:
+  defaultIntervalSeconds: 900
+sources:
+  - id: bitflyer
+`),
+    ).toMatchObject({
+      sources: [{ id: "bitflyer", enabled: true, intervalSeconds: 900 }],
+    });
+  });
+
   it("rejects duplicate source ids", () => {
     expect(() =>
       parseSchedulerConfig(`
