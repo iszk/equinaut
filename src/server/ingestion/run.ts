@@ -71,7 +71,7 @@ const summarizeObservation = (observation: ScopeObservationResult): string => {
     return `${observation.scopeId}:success:${observation.holdings.length}`;
   }
 
-  return `${observation.scopeId}:${observation.status}:${observation.error.code}`;
+  return `${observation.scopeId}:${observation.status}:${observation.error.code} - ${observation.error.message}`;
 };
 
 export const runBitflyerIngestion = async (): Promise<IngestionRunResult> => {
