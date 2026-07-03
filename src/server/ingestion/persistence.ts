@@ -125,6 +125,27 @@ const metadataFor = (error: SourceObservationError): ScopeObservationErrorMetada
   };
 };
 
+const scopeObservationMetadataFor = ({
+  errorMetadata,
+  observationMetadata,
+}: {
+  errorMetadata: ScopeObservationErrorMetadata | undefined;
+  observationMetadata: Record<string, unknown> | undefined;
+}): Record<string, unknown> | undefined => {
+  if (errorMetadata === undefined) {
+    return observationMetadata;
+  }
+
+  if (observationMetadata === undefined) {
+    return { ...errorMetadata };
+  }
+
+  return {
+    ...observationMetadata,
+    ...errorMetadata,
+  };
+};
+
 export const persistSourceObservation = async ({
   driver,
   sourceId,
@@ -142,6 +163,10 @@ export const persistSourceObservation = async ({
     });
     const error = errorFor(observation);
     const errorMetadata = error === undefined ? undefined : metadataFor(error);
+    const scopeObservationMetadata = scopeObservationMetadataFor({
+      errorMetadata,
+      observationMetadata: observation.metadata,
+    });
     const ingestionRun = await tx.createIngestionRun({
       sourceAccountId: sourceAccount.id,
       status: observation.status,
@@ -159,9 +184,8 @@ export const persistSourceObservation = async ({
             ...(error.rawErrorCode === undefined ? {} : { rawErrorCode: error.rawErrorCode }),
             errorMessage: error.message,
             retryable: error.retryable,
-            ...(errorMetadata === undefined ? {} : { metadata: errorMetadata }),
           }),
-      ...(observation.metadata === undefined ? {} : { metadata: observation.metadata }),
+      ...(scopeObservationMetadata === undefined ? {} : { metadata: scopeObservationMetadata }),
     });
 
     if (observation.status !== "failed" && observation.holdings.length > 0) {

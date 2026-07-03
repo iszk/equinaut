@@ -183,6 +183,55 @@ describe("persistBitbankSpotObservation", () => {
 });
 
 describe("persistSourceObservation", () => {
+  it("merges observation metadata with safe error metadata", async () => {
+    const { driver, scopeObservations } = createRecordingDriver();
+
+    await persistSourceObservation({
+      driver,
+      sourceId: "bitflyer",
+      displayName: "bitFlyer",
+      observation: {
+        scopeId: "bitflyer:cfd_account",
+        observedAt,
+        status: "partial",
+        error: {
+          code: "bitflyer_http_error",
+          message: "bitflyer API returned an HTTP error (500)",
+          retryable: true,
+          category: "api",
+          metadata: {
+            endpoint: "GET /v1/me/getpositions",
+            httpStatus: 500,
+            normalizedErrorCode: "bitflyer_http_error",
+            retryable: true,
+            category: "api",
+          },
+        },
+        holdings: [],
+        metadata: {
+          collateral_check: {
+            collateral_jpy: "1000",
+            collateral_accounts_value_jpy: "990",
+            collateral_difference_jpy: "10",
+          },
+        },
+      },
+    });
+
+    expect(scopeObservations[0]?.metadata).toEqual({
+      collateral_check: {
+        collateral_jpy: "1000",
+        collateral_accounts_value_jpy: "990",
+        collateral_difference_jpy: "10",
+      },
+      endpoint: "GET /v1/me/getpositions",
+      http_status: 500,
+      normalized_error_code: "bitflyer_http_error",
+      retryable: true,
+      category: "api",
+    });
+  });
+
   it("persists bitflyer CFD observations with cfd scope type and metadata", async () => {
     const { calls, driver, scopeObservations } = createRecordingDriver();
 
