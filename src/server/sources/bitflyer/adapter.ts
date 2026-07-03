@@ -135,8 +135,20 @@ const fetchTickerMap = async (client: BitflyerHttpClient, symbols: string[]): Pr
   const tickers: Record<string, BitflyerTicker> = {};
   await Promise.all(
     symbols.map(async (symbol) => {
-      const ticker = await client.getTicker(`${symbol}_JPY`);
-      tickers[ticker.product_code] = ticker;
+      try {
+        const ticker = await client.getTicker(`${symbol}_JPY`);
+        tickers[ticker.product_code] = ticker;
+      } catch (error) {
+        if (
+          error instanceof BitflyerHttpClientError &&
+          !error.metadata.retryable &&
+          error.metadata.category === "api"
+        ) {
+          return;
+        }
+
+        throw error;
+      }
     }),
   );
 

@@ -72,4 +72,75 @@ describe("collectBitflyerAccounts", () => {
     }
     expect(results[1]?.status).toBe("success");
   });
+
+  it("returns partial spot holdings when a ticker is unavailable with a non-retryable API error", async () => {
+    const client: BitflyerHttpClient = {
+      ...successfulClient,
+      async getBalance() {
+        return [
+          { currency_code: "JPY", amount: "1000", available: "1000" },
+          { currency_code: "ETH", amount: "0.5", available: "0.5" },
+        ];
+      },
+      async getTicker(productCode) {
+        if (productCode === "ETH_JPY") {
+          throw new BitflyerHttpClientError("bitflyer API returned an error", {
+            endpoint: "GET /v1/ticker",
+            httpStatus: 400,
+            rawErrorCode: "-100",
+            normalizedErrorCode: "bitflyer_api_error",
+            retryable: false,
+            category: "api",
+          });
+        }
+
+        return successfulClient.getTicker(productCode);
+      },
+    };
+
+    const results = await collectBitflyerAccounts({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      client,
+      now: new Date("2026-07-02T00:00:00.000Z"),
+    });
+
+    expect(results[0]?.status).toBe("partial");
+    if (results[0]?.status === "partial") {
+      expect(results[0].error).toMatchObject({ code: "missing_ticker", category: "valuation", retryable: false });
+      expect(results[0].holdings.map((holding) => holding.assetKey)).toEqual(["bitflyer:spot_account:cash:JPY"]);
+    }
+    expect(results[1]?.status).toBe("success");
+  });
+
+  it("returns failed spot scope when ticker retrieval fails with a retryable error", async () => {
+    const client: BitflyerHttpClient = {
+      ...successfulClient,
+      async getBalance() {
+        return [{ currency_code: "BTC", amount: "0.1", available: "0.1" }];
+      },
+      async getTicker() {
+        throw new BitflyerHttpClientError("bitflyer request failed", {
+          endpoint: "GET /v1/ticker",
+          normalizedErrorCode: "bitflyer_network_error",
+          retryable: true,
+          category: "network",
+        });
+      },
+    };
+
+    const results = await collectBitflyerAccounts({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      client,
+      now: new Date("2026-07-02T00:00:00.000Z"),
+    });
+
+    expect(results[0]?.status).toBe("failed");
+    if (results[0]?.status === "failed") {
+      expect(results[0].error).toMatchObject({
+        code: "bitflyer_network_error",
+        category: "network",
+        retryable: true,
+      });
+    }
+  });
 });
