@@ -16,8 +16,8 @@ export type BitflyerCollateral = {
   open_position_pnl: string;
   require_collateral: string;
   keep_rate: string;
-  margin_call_amount?: string | undefined;
-  margin_call_due_date?: string | undefined;
+  margin_call_amount?: string | null | undefined;
+  margin_call_due_date?: string | null | undefined;
 };
 
 export type BitflyerCollateralAccount = {

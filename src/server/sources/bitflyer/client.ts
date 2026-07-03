@@ -14,6 +14,7 @@ import type {
 } from "./types.js";
 
 const numberStringSchema = z.number().transform((value) => value.toString());
+const nullableNumberStringSchema = numberStringSchema.nullable();
 
 const balanceSchema = z.object({
   currency_code: z.string(),
@@ -26,8 +27,8 @@ const collateralSchema = z.object({
   open_position_pnl: numberStringSchema,
   require_collateral: numberStringSchema,
   keep_rate: numberStringSchema,
-  margin_call_amount: numberStringSchema.optional(),
-  margin_call_due_date: z.string().optional(),
+  margin_call_amount: nullableNumberStringSchema.optional(),
+  margin_call_due_date: z.string().nullable().optional(),
 });
 
 const collateralAccountSchema = z.object({

@@ -223,7 +223,8 @@ describe("runBitflyerIngestion", () => {
 
     await expect(runBitflyerIngestion()).resolves.toEqual({
       status: "partial",
-      message: "bitflyer ingestion partial: bitflyer:spot_account:success:0, bitflyer:cfd_account:failed:bitflyer_network_error",
+      message:
+        "bitflyer ingestion partial: bitflyer:spot_account:success:0, bitflyer:cfd_account:failed:bitflyer_network_error - request failed Authorization: [REDACTED]",
     });
   });
 });
