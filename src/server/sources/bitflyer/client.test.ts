@@ -51,6 +51,32 @@ describe("createBitflyerHttpClient", () => {
     });
   });
 
+  it("accepts nullable margin call fields in collateral responses", async () => {
+    const fetchFn: FetchLike = async () =>
+      jsonResponse({
+        collateral: 30000,
+        open_position_pnl: -10,
+        require_collateral: 1000,
+        keep_rate: 3,
+        margin_call_amount: null,
+        margin_call_due_date: null,
+      });
+
+    const client = createBitflyerHttpClient({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      fetchFn,
+    });
+
+    await expect(client.getCollateral()).resolves.toEqual({
+      collateral: "30000",
+      open_position_pnl: "-10",
+      require_collateral: "1000",
+      keep_rate: "3",
+      margin_call_amount: null,
+      margin_call_due_date: null,
+    });
+  });
+
   it("classifies HTTP 429 as retryable rate limit without storing the raw body", async () => {
     const fetchFn: FetchLike = async () =>
       jsonResponse({ status: -500, error_message: "Authorization: Bearer secret-token" }, 429);
