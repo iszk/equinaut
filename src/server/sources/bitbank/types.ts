@@ -1,3 +1,10 @@
+import type {
+  HoldingSnapshot,
+  SourceErrorMetadata,
+  SourceObservationError,
+  SourceObservationErrorCategory,
+} from "../../ingestion/source-types.js";
+
 export type BitbankAsset = {
   asset: string;
   amount_precision: number;
@@ -19,17 +26,11 @@ export type BitbankTicker = {
   timestamp: number;
 };
 
-export type SourceObservationErrorCategory = "configuration" | "api" | "valuation" | "network" | "contract";
-
 export type BitbankHttpEndpoint = "GET /user/assets" | "GET /tickers_jpy";
 
-export type BitbankHttpErrorMetadata = {
+export type BitbankHttpErrorMetadata = SourceErrorMetadata & {
   endpoint: BitbankHttpEndpoint;
-  httpStatus?: number;
   bitbankErrorCode?: number;
-  normalizedErrorCode: string;
-  retryable: boolean;
-  category: SourceObservationErrorCategory;
 };
 
 export type BitbankSuccessResponse<T> = {
@@ -63,24 +64,4 @@ export type SanitizedBitbankAssetRaw = {
   stop_withdrawal: boolean;
 };
 
-export type HoldingSnapshot = {
-  assetKey: string;
-  assetType: "cash" | "crypto" | "stock" | "fund";
-  symbol: string;
-  name?: string;
-  quantity: string;
-  price: string;
-  priceCurrency: "JPY";
-  fxToJpy: string;
-  valueJpy: string;
-  raw: SanitizedBitbankAssetRaw;
-};
-
-export type SourceObservationError = {
-  code: string;
-  rawErrorCode?: string;
-  message: string;
-  retryable: boolean;
-  category: SourceObservationErrorCategory;
-  metadata?: BitbankHttpErrorMetadata;
-};
+export type { HoldingSnapshot, SourceObservationError, SourceObservationErrorCategory };

@@ -13,3 +13,6 @@ sources:
     enabled: true
     # 省略時は scheduler.defaultIntervalSeconds を使います。
     intervalSeconds: 900
+  - id: bitflyer
+    enabled: false
+    intervalSeconds: 900

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-import { runBitbankIngestion } from "../src/server/ingestion/run.js";
+import { runBitbankIngestion, runBitflyerIngestion } from "../src/server/ingestion/run.js";
 
 const source = process.argv[2];
 
-if (source !== "bitbank") {
-  console.error("usage: tsx scripts/ingest.ts bitbank");
+if (source !== "bitbank" && source !== "bitflyer") {
+  console.error("usage: tsx scripts/ingest.ts <bitbank|bitflyer>");
   process.exit(1);
 }
 
-const result = await runBitbankIngestion();
+const result = source === "bitbank" ? await runBitbankIngestion() : await runBitflyerIngestion();
 const output = result.status === "success" ? console.log : console.error;
 output(result.message);
 

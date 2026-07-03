@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadBitbankCredentials, readSecret } from "./secrets.js";
+import { loadBitbankCredentials, loadBitflyerCredentials, readSecret } from "./secrets.js";
 
 const fileWith = (value: string): string => {
   const dir = mkdtempSync(join(tmpdir(), "equinaut-secret-"));
@@ -62,6 +62,27 @@ describe("loadBitbankCredentials", () => {
       status: "disabled",
       reason: "missing bitbank credentials",
       missing: ["BITBANK_API_SECRET"],
+    });
+  });
+});
+
+describe("loadBitflyerCredentials", () => {
+  it("returns available credentials when key and secret exist", () => {
+    const result = loadBitflyerCredentials({
+      BITFLYER_API_KEY: "key",
+      BITFLYER_API_SECRET: "secret",
+    });
+
+    expect(result).toEqual({ status: "available", apiKey: "key", apiSecret: "secret" });
+  });
+
+  it("returns disabled when a credential is missing", () => {
+    const result = loadBitflyerCredentials({ BITFLYER_API_KEY: "key" });
+
+    expect(result).toEqual({
+      status: "disabled",
+      reason: "missing bitflyer credentials",
+      missing: ["BITFLYER_API_SECRET"],
     });
   });
 });

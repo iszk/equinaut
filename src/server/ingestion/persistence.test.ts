@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { persistBitbankSpotObservation } from "./persistence.js";
+import { persistBitbankSpotObservation, persistSourceObservation } from "./persistence.js";
 import type { IngestionPersistenceDriver, ScopeObservationInput } from "./persistence.js";
 import type { HoldingSnapshot } from "../sources/bitbank/types.js";
 
@@ -178,6 +178,107 @@ describe("persistBitbankSpotObservation", () => {
       normalized_error_code: "rate_limited",
       retryable: true,
       category: "api",
+    });
+  });
+});
+
+describe("persistSourceObservation", () => {
+  it("merges observation metadata with safe error metadata", async () => {
+    const { driver, scopeObservations } = createRecordingDriver();
+
+    await persistSourceObservation({
+      driver,
+      sourceId: "bitflyer",
+      displayName: "bitFlyer",
+      observation: {
+        scopeId: "bitflyer:cfd_account",
+        observedAt,
+        status: "partial",
+        error: {
+          code: "bitflyer_http_error",
+          message: "bitflyer API returned an HTTP error (500)",
+          retryable: true,
+          category: "api",
+          metadata: {
+            endpoint: "GET /v1/me/getpositions",
+            httpStatus: 500,
+            normalizedErrorCode: "bitflyer_http_error",
+            retryable: true,
+            category: "api",
+          },
+        },
+        holdings: [],
+        metadata: {
+          collateral_check: {
+            collateral_jpy: "1000",
+            collateral_accounts_value_jpy: "990",
+            collateral_difference_jpy: "10",
+          },
+        },
+      },
+    });
+
+    expect(scopeObservations[0]?.metadata).toEqual({
+      collateral_check: {
+        collateral_jpy: "1000",
+        collateral_accounts_value_jpy: "990",
+        collateral_difference_jpy: "10",
+      },
+      endpoint: "GET /v1/me/getpositions",
+      http_status: 500,
+      normalized_error_code: "bitflyer_http_error",
+      retryable: true,
+      category: "api",
+    });
+  });
+
+  it("persists bitflyer CFD observations with cfd scope type and metadata", async () => {
+    const { calls, driver, scopeObservations } = createRecordingDriver();
+
+    await persistSourceObservation({
+      driver,
+      sourceId: "bitflyer",
+      displayName: "bitFlyer",
+      observation: {
+        scopeId: "bitflyer:cfd_account",
+        observedAt,
+        status: "success",
+        holdings: [
+          {
+            ...jpyHolding,
+            assetKey: "bitflyer:cfd_account:cash:JPY",
+            raw: {
+              source: "bitflyer",
+              endpoint: "GET /v1/me/getcollateralaccounts",
+              currency_code: "JPY",
+              amount: "1000",
+            },
+          },
+        ],
+        metadata: {
+          collateral_check: {
+            collateral_jpy: "1000",
+            collateral_accounts_value_jpy: "1000",
+            collateral_difference_jpy: "0",
+          },
+        },
+      },
+    });
+
+    expect(calls).toEqual([
+      "transaction",
+      "upsertSourceAccount:bitflyer:bitFlyer",
+      "upsertObservationScope:source-account-id:bitflyer:cfd_account:cfd_account",
+      "createIngestionRun:source-account-id:success:none",
+      "createScopeObservation:run-id:scope-id:success:2026-06-17T12:34:56.000Z:none:none:none",
+      "createAssetSnapshots:observation-id:2026-06-17T12:34:56.000Z:bitflyer:cfd_account:cash:JPY",
+    ]);
+    expect(scopeObservations[0]?.metadata).toEqual({
+      collateral_check: {
+        collateral_jpy: "1000",
+        collateral_accounts_value_jpy: "1000",
+        collateral_difference_jpy: "0",
+      },
     });
   });
 });

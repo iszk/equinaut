@@ -1,4 +1,4 @@
-import { runBitbankIngestion } from "./run.js";
+import { runBitbankIngestion, runBitflyerIngestion } from "./run.js";
 import type { IngestionRunResult } from "./run.js";
 import { redactSensitiveMessage } from "./redaction.js";
 import type { IngestionSourceId, SchedulerConfig, SchedulerSourceConfig } from "./scheduler-config.js";
@@ -27,6 +27,8 @@ export const runIngestionSource = async (sourceId: IngestionSourceId): Promise<I
   switch (sourceId) {
     case "bitbank":
       return runBitbankIngestion();
+    case "bitflyer":
+      return runBitflyerIngestion();
   }
 };
 
