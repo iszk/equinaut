@@ -185,7 +185,7 @@
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -225,7 +225,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "select\n  observed_at as \"time\",\n  concat(source_id, ' / ', scope_id) as metric,\n  total_value_jpy\nfrom portfolio_value_timeseries\nwhere $__timeFilter(observed_at)\n  and source_id in (${source_id:sqlstring})\n  and scope_id in (${scope_id:sqlstring})\norder by observed_at;",
+          "rawSql": "with bounds as (\n  select\n    date_trunc('hour', ($__timeFrom())::timestamptz) as from_at,\n    date_trunc('hour', ($__timeTo())::timestamptz) as to_at\n),\nbuckets as (\n  select generate_series(from_at, to_at, interval '1 hour') as bucket_at\n  from bounds\n),\nseries as (\n  select distinct\n    source_id,\n    scope_id\n  from portfolio_value_timeseries\n  where source_id in (${source_id:sqlstring})\n    and scope_id in (${scope_id:sqlstring})\n)\nselect\n  buckets.bucket_at as \"time\",\n  concat(series.source_id, ' / ', series.scope_id) as metric,\n  latest.total_value_jpy\nfrom buckets\ncross join series\nleft join lateral (\n  select\n    point.total_value_jpy\n  from portfolio_value_timeseries point\n  where point.source_id = series.source_id\n    and point.scope_id = series.scope_id\n    and point.observed_at <= buckets.bucket_at\n  order by point.observed_at desc, point.scope_observation_id desc\n  limit 1\n) latest on true\nwhere latest.total_value_jpy is not null\norder by buckets.bucket_at, metric;",
           "refId": "A"
         }
       ],
