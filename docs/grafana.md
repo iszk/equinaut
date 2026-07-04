@@ -60,7 +60,9 @@ provisioning で管理する場合は、dashboard JSON を既存 Grafana の das
 
 ### ポートフォリオ評価額の推移
 
-`portfolio_value_timeseries` を time series として表示します。複数 source / scope を扱う場合に備えて、series label は `source_id / scope_id` です。
+`portfolio_value_timeseries` を元に、1時間 bucket ごとの直近 successful value を `source_id / scope_id` 系列ごとに carry-forward して stacked area chart として表示します。欠けた scope を 0 として扱わないため、現物 / CFD などの一部取得失敗や時刻ズレによる櫛状の表示を抑えます。
+
+scope ごとの実測点に近い推移を確認したい場合は、`portfolio-value-timeseries.sql` を使います。stacked area 用の query は `portfolio-value-timeseries-carry-forward.sql` です。
 
 ### 資産配分
 
@@ -81,6 +83,7 @@ Panel の SQL は `grafana/queries/` に分離してあります。Grafana dashb
 - `latest-total-value.sql`
 - `latest-assets.sql`
 - `portfolio-value-timeseries.sql`
+- `portfolio-value-timeseries-carry-forward.sql`
 - `asset-allocation.sql`
 - `source-freshness.sql`
 
