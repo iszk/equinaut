@@ -80,6 +80,10 @@ const formatZodIssuePath = (issue: ZodIssue): string => (issue.path.length === 0
 const collectZodIssueMessages = (issues: ZodIssue[]): string[] =>
   issues.flatMap((issue) => {
     if (issue.code === "invalid_union") {
+      if (issue.errors.length === 0) {
+        return [`${formatZodIssuePath(issue)}: ${issue.message}`];
+      }
+
       return issue.errors.flatMap((unionIssues) => collectZodIssueMessages(unionIssues));
     }
 
