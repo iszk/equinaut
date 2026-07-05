@@ -217,7 +217,7 @@ describe("collectBitbankSpotAccount", () => {
       expect(result.error).toEqual({
         code: "bitbank_response_contract_error",
         message:
-          "bitbank API response did not match the expected schema: success: Invalid literal value, expected 1",
+          "bitbank API response did not match the expected schema: success: Invalid input: expected 1",
         retryable: false,
         category: "contract",
       });
