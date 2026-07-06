@@ -7,6 +7,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "contracts:generate": "tsx scripts/generate-contract-artifacts.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "ingest:bitbank": "tsx scripts/ingest.ts bitbank",

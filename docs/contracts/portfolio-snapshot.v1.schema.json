@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "portfolio-snapshot.v1"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exporter": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "provider"
+      ],
+      "additionalProperties": false
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    },
+    "dataAsOf": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    },
+    "baseCurrency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "accounts": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sourceAccountId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "accountType": {
+            "type": "string",
+            "minLength": 1
+          },
+          "baseCurrency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "sourceMetadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/$defs/__schema0"
+            }
+          }
+        },
+        "required": [
+          "sourceAccountId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "cashBalances": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sourceAccountId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+          },
+          "valueJpy": {
+            "type": "string",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+          },
+          "fxRateToJpy": {
+            "type": "string",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+          },
+          "sourceBalanceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceMetadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/$defs/__schema0"
+            }
+          }
+        },
+        "required": [
+          "sourceAccountId",
+          "currency",
+          "amount",
+          "valueJpy"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "positions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sourceAccountId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourcePositionId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceInstrumentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assetClass": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "stock",
+              "etf",
+              "fund",
+              "bond",
+              "option",
+              "future",
+              "cfd",
+              "fx"
+            ]
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "long",
+              "short",
+              "flat"
+            ]
+          },
+          "price": {
+            "type": "string",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+          },
+          "priceCurrency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "valueJpy": {
+            "type": "string",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+          },
+          "costBasisJpy": {
+            "type": "string",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+          },
+          "unrealizedPnlJpy": {
+            "type": "string",
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"
+          },
+          "sourceMetadata": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "$ref": "#/$defs/__schema0"
+            }
+          }
+        },
+        "required": [
+          "sourceAccountId",
+          "sourcePositionId",
+          "sourceInstrumentId",
+          "assetClass",
+          "symbol",
+          "quantity",
+          "valueJpy"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "sourceMetadata": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/__schema0"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "source",
+    "generatedAt",
+    "dataAsOf",
+    "baseCurrency",
+    "accounts",
+    "cashBalances",
+    "positions"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/__schema0"
+          }
+        }
+      ]
+    }
+  }
+}
