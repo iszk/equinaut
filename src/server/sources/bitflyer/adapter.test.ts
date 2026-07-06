@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 import { collectBitflyerAccounts } from "./adapter.js";
 import { BitflyerHttpClientError } from "./client.js";
 import type { BitflyerHttpClient } from "./client.js";
@@ -142,5 +143,35 @@ describe("collectBitflyerAccounts", () => {
         retryable: true,
       });
     }
+  });
+
+  it("keeps invalid union messages when Zod does not include nested union errors", async () => {
+    const client: BitflyerHttpClient = {
+      ...successfulClient,
+      async getBalance() {
+        throw new ZodError([
+          {
+            code: "invalid_union",
+            errors: [],
+            path: ["currency_code"],
+            message: "Invalid union",
+          },
+        ]);
+      },
+    };
+
+    const results = await collectBitflyerAccounts({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      client,
+      now: new Date("2026-07-02T00:00:00.000Z"),
+    });
+
+    expect(results[0]?.status).toBe("failed");
+    if (results[0]?.status === "failed") {
+      expect(results[0].error.message).toBe(
+        "bitflyer API response did not match the expected schema: currency_code: Invalid union",
+      );
+    }
+    expect(results[1]?.status).toBe("success");
   });
 });

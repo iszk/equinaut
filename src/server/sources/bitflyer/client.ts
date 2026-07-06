@@ -230,7 +230,7 @@ const parseBitflyerJsonBody = async (response: Response, endpoint: BitflyerHttpE
 const parseResponse = async <T>(
   response: Response,
   endpoint: BitflyerHttpEndpoint,
-  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  schema: z.ZodType<T, unknown>,
 ): Promise<T> => {
   const body = await parseBitflyerJsonBody(response, endpoint);
   const errorResult = bitflyerErrorResponseSchema.safeParse(body);
