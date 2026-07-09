@@ -1,7 +1,7 @@
 with allocation_buckets as (
   select
     case
-      when scope_type = 'cfd_account' then 'CFD'
+      when asset_type = 'cfd' then 'CFD'
       else symbol
     end as symbol,
     sum(value_jpy) as value_jpy,
@@ -14,7 +14,7 @@ with allocation_buckets as (
     source_id,
     scope_id,
     case
-      when scope_type = 'cfd_account' then 'CFD'
+      when asset_type = 'cfd' then 'CFD'
       else symbol
     end
 ),

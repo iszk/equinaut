@@ -100,7 +100,7 @@ export const assetSnapshots = pgTable(
     raw: jsonb("raw"),
   },
   (table) => ({
-    assetTypeCheck: check("asset_snapshots_asset_type_check", sql`${table.assetType} in ('cash', 'crypto', 'stock', 'fund')`),
+    assetTypeCheck: check("asset_snapshots_asset_type_check", sql`${table.assetType} in ('cash', 'crypto', 'stock', 'fund', 'cfd')`),
     scopeObservationObservedAtFk: foreignKey({
       columns: [table.scopeObservationId, table.observedAt],
       foreignColumns: [scopeObservations.id, scopeObservations.observedAt],

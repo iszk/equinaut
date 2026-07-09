@@ -202,6 +202,78 @@ maybeDescribe("portfolio dashboard views integration", () => {
     });
   });
 
+  it("accepts cfd asset type and exposes it through dashboard views", async () => {
+    await withTestDatabase(async ({ db }) => {
+      const observedAt = new Date("2026-07-09T00:00:00.000Z");
+      const [sourceAccount] = await db
+        .insert(sourceAccounts)
+        .values({ sourceId: "bitflyer", displayName: "bitFlyer" })
+        .returning({ id: sourceAccounts.id });
+      if (sourceAccount === undefined) {
+        throw new Error("source account insert did not return an id");
+      }
+
+      const [observationScope] = await db
+        .insert(observationScopes)
+        .values({ sourceAccountId: sourceAccount.id, scopeId: "bitflyer:cfd_account", scopeType: "cfd_account" })
+        .returning({ id: observationScopes.id });
+      const [ingestionRun] = await db
+        .insert(ingestionRuns)
+        .values({ sourceAccountId: sourceAccount.id, status: "success", finishedAt: observedAt })
+        .returning({ id: ingestionRuns.id });
+      if (observationScope === undefined || ingestionRun === undefined) {
+        throw new Error("observation setup insert did not return an id");
+      }
+
+      const [scopeObservation] = await db
+        .insert(scopeObservations)
+        .values({
+          ingestionRunId: ingestionRun.id,
+          observationScopeId: observationScope.id,
+          status: "success",
+          observedAt,
+        })
+        .returning({ id: scopeObservations.id });
+      if (scopeObservation === undefined) {
+        throw new Error("scope observation insert did not return an id");
+      }
+
+      await db.insert(assetSnapshots).values({
+        scopeObservationId: scopeObservation.id,
+        observedAt,
+        assetKey: "bitflyer:cfd_account:cfd:JPY:unrealized_pnl",
+        assetType: "cfd",
+        symbol: "JPY",
+        name: "CFD評価損益",
+        quantity: "1200",
+        price: "1",
+        priceCurrency: "JPY",
+        fxToJpy: "1",
+        valueJpy: "1200",
+      });
+
+      const latestAssets = await db.select().from(portfolioLatestAssets);
+      expect(latestAssets).toMatchObject([
+        {
+          sourceId: "bitflyer",
+          scopeId: "bitflyer:cfd_account",
+          assetKey: "bitflyer:cfd_account:cfd:JPY:unrealized_pnl",
+          assetType: "cfd",
+          valueJpy: "1200.000000000000000000",
+        },
+      ]);
+
+      const allocation = await db.select().from(portfolioAssetAllocation);
+      expect(allocation).toMatchObject([
+        {
+          assetKey: "bitflyer:cfd_account:cfd:JPY:unrealized_pnl",
+          assetType: "cfd",
+          portfolioWeight: "1.000000000000000000",
+        },
+      ]);
+    });
+  });
+
   it("excludes voided successful observations from latest assets, timeseries, and allocation", async () => {
     await withTestDatabase(async ({ db }) => {
       const driver = createDrizzleIngestionPersistenceDriver(db);

@@ -123,6 +123,8 @@ order by latest_observed_at desc;
 
 `portfolio_asset_allocation` は `source_id` / `scope_id` 単位で scoped されています。複数 scope を扱う場合は、Grafana の filter または label にこれらの field を含めてください。
 
+`asset_snapshots.asset_type` は厳密な金融商品 taxonomy ではなく、dashboard 上で合算・allocation 表示するための valuation category です。CFD では notional / exposure を asset snapshot に保存せず、総資産に加算してよい評価額または評価損益コンポーネントだけを `asset_type = cfd` として保存します。
+
 ## 運用手順
 
 1. 最新 migration を含む code を deploy します。

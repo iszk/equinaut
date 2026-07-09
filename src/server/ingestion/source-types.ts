@@ -21,7 +21,7 @@ export type SourceObservationError = {
 
 export type HoldingSnapshot = {
   assetKey: string;
-  assetType: "cash" | "crypto" | "stock" | "fund";
+  assetType: "cash" | "crypto" | "stock" | "fund" | "cfd";
   symbol: string;
   name?: string;
   quantity: string;

@@ -102,7 +102,8 @@ describe("mapBitflyerCfdToHoldings", () => {
           valueJpy: "10000",
         },
         {
-          assetKey: "bitflyer:cfd_account:cash:JPY:unrealized_pnl",
+          assetKey: "bitflyer:cfd_account:cfd:JPY:unrealized_pnl",
+          assetType: "cfd",
           name: "CFD評価損益",
           quantity: "-10",
           valueJpy: "-10",
