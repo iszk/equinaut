@@ -305,7 +305,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select\n  symbol,\n  value_jpy,\n  portfolio_weight,\n  source_id,\n  scope_id\nfrom portfolio_asset_allocation\nwhere source_id in (${source_id:sqlstring})\n  and scope_id in (${scope_id:sqlstring})\norder by value_jpy desc;",
+          "rawSql": "with allocation_buckets as (\n  select\n    case\n      when asset_type = 'cfd' then 'CFD'\n      else symbol\n    end as symbol,\n    sum(value_jpy) as value_jpy,\n    source_id,\n    scope_id\n  from portfolio_asset_allocation\n  where source_id in (${source_id:sqlstring})\n    and scope_id in (${scope_id:sqlstring})\n  group by\n    source_id,\n    scope_id,\n    case\n      when asset_type = 'cfd' then 'CFD'\n      else symbol\n    end\n),\npositive_buckets as (\n  select *\n  from allocation_buckets\n  where value_jpy > 0\n)\nselect\n  symbol,\n  value_jpy,\n  case\n    when sum(value_jpy) over () = 0 then 0\n    else value_jpy / sum(value_jpy) over ()\n  end as portfolio_weight,\n  source_id,\n  scope_id\nfrom positive_buckets\norder by value_jpy desc;",
           "refId": "A"
         }
       ],

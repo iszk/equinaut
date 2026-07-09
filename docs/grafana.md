@@ -68,6 +68,8 @@ scope ごとの実測点に近い推移を確認したい場合は、`portfolio-
 
 `portfolio_asset_allocation` を pie chart として表示します。`portfolio_weight` は 0-1 ratio なので、Grafana では percent unit で表示します。
 
+CFD bucket は `asset_type = 'cfd'` の holding を `CFD` として集約します。`scope_type = 'cfd_account'` の証拠金 cash / crypto は、個別の valuation category としてそのまま扱います。
+
 ### 最新保有資産
 
 `portfolio_latest_assets` を table として表示します。`quantity`, `price`, `value_jpy`, `observed_at` を確認できます。

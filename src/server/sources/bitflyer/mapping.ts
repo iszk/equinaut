@@ -212,8 +212,8 @@ export const mapBitflyerCfdToHoldings = ({
   const openPositionPnl = new Decimal(collateral.open_position_pnl);
   if (!openPositionPnl.isZero()) {
     holdings.push({
-      assetKey: "bitflyer:cfd_account:cash:JPY:unrealized_pnl",
-      assetType: "cash",
+      assetKey: "bitflyer:cfd_account:cfd:JPY:unrealized_pnl",
+      assetType: "cfd",
       symbol: "JPY",
       name: "CFD評価損益",
       quantity: collateral.open_position_pnl,
