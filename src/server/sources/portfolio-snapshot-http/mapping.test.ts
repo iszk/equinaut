@@ -185,6 +185,31 @@ describe("mapPortfolioSnapshotToHoldings", () => {
     });
   });
 
+  it("skips aggregated cash balances that net to zero amount and zero value", () => {
+    const snapshot: PortfolioSnapshotV1 = {
+      ...baseSnapshot(),
+      cashBalances: [
+        {
+          sourceAccountId: "account-1",
+          currency: "USD",
+          amount: "10",
+          valueJpy: "1600",
+        },
+        {
+          sourceAccountId: "account-2",
+          currency: "USD",
+          amount: "-10",
+          valueJpy: "-1600",
+        },
+      ],
+    };
+
+    expect(mapPortfolioSnapshotToHoldings({ snapshot, config })).toEqual({
+      status: "success",
+      holdings: [],
+    });
+  });
+
   it("fails non-CFD short positions until their representation is explicitly decided", () => {
     const snapshot: PortfolioSnapshotV1 = {
       ...baseSnapshot(),

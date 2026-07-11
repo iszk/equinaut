@@ -103,6 +103,10 @@ const mapCashBalances = ({
   const holdings: HoldingSnapshot[] = [];
   for (const [currency, aggregate] of grouped.entries()) {
     if (aggregate.amount.isZero()) {
+      if (aggregate.valueJpy.isZero()) {
+        continue;
+      }
+
       return {
         status: "failed",
         error: mappingError("cash_zero_amount_nonzero_value", `Cash balance ${currency} has zero amount and non-zero valueJpy`),
