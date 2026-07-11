@@ -11,6 +11,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "ingest:bitbank": "tsx scripts/ingest.ts bitbank",
+    "ingest:saxo": "tsx scripts/ingest.ts saxo",
     "ingest:scheduler": "tsx scripts/ingest-scheduler.ts"
   },
   "dependencies": {

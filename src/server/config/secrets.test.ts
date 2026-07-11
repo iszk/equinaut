@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadBitbankCredentials, loadBitflyerCredentials, readSecret } from "./secrets.js";
+import { loadBitbankCredentials, loadBitflyerCredentials, loadSaxoPortfolioCredentials, readSecret } from "./secrets.js";
 
 const fileWith = (value: string): string => {
   const dir = mkdtempSync(join(tmpdir(), "equinaut-secret-"));
@@ -83,6 +83,45 @@ describe("loadBitflyerCredentials", () => {
       status: "disabled",
       reason: "missing bitflyer credentials",
       missing: ["BITFLYER_API_SECRET"],
+    });
+  });
+});
+
+describe("loadSaxoPortfolioCredentials", () => {
+  it("returns available credentials when URL and secret exist", () => {
+    const result = loadSaxoPortfolioCredentials({
+      SAXO_PORTFOLIO_API_URL: " https://portfolio.example/snapshot ",
+      SAXO_PORTFOLIO_API_SECRET: "secret",
+    });
+
+    expect(result).toEqual({
+      status: "available",
+      apiUrl: "https://portfolio.example/snapshot",
+      apiSecret: "secret",
+    });
+  });
+
+  it("prefers file-mounted secrets over env values", () => {
+    const result = loadSaxoPortfolioCredentials({
+      SAXO_PORTFOLIO_API_URL: "https://portfolio.example/snapshot",
+      SAXO_PORTFOLIO_API_SECRET_FILE: fileWith("from-file\n"),
+      SAXO_PORTFOLIO_API_SECRET: "from-env",
+    });
+
+    expect(result).toEqual({
+      status: "available",
+      apiUrl: "https://portfolio.example/snapshot",
+      apiSecret: "from-file",
+    });
+  });
+
+  it("returns disabled when URL or secret is missing", () => {
+    const result = loadSaxoPortfolioCredentials({});
+
+    expect(result).toEqual({
+      status: "disabled",
+      reason: "missing saxo portfolio API configuration",
+      missing: ["SAXO_PORTFOLIO_API_URL", "SAXO_PORTFOLIO_API_SECRET"],
     });
   });
 });

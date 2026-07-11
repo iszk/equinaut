@@ -16,3 +16,6 @@ sources:
   - id: bitflyer
     enabled: false
     intervalSeconds: 900
+  - id: saxo
+    enabled: false
+    intervalSeconds: 900

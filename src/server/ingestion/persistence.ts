@@ -34,6 +34,7 @@ export type ScopeObservationInput = {
   observationScopeId: string;
   status: "success" | "partial" | "failed";
   observedAt: Date;
+  dataAsOf?: Date;
   errorCode?: string;
   rawErrorCode?: string;
   errorMessage?: string;
@@ -86,6 +87,10 @@ const scopeTypeFor = (scopeId: string): string => {
 
   if (scopeId === "bitflyer:cfd_account") {
     return "cfd_account";
+  }
+
+  if (scopeId === "saxo:portfolio") {
+    return "portfolio";
   }
 
   return scopeId;
@@ -177,6 +182,7 @@ export const persistSourceObservation = async ({
       observationScopeId: observationScope.id,
       status: observation.status,
       observedAt: observation.observedAt,
+      ...(observation.dataAsOf === undefined ? {} : { dataAsOf: observation.dataAsOf }),
       ...(error === undefined
         ? {}
         : {
@@ -283,6 +289,7 @@ const createDriverForExecutor = (executor: DrizzleExecutor): IngestionPersistenc
         observationScopeId: input.observationScopeId,
         status: input.status,
         observedAt: input.observedAt,
+        ...(input.dataAsOf === undefined ? {} : { dataAsOf: input.dataAsOf }),
         ...(input.errorCode === undefined ? {} : { errorCode: input.errorCode }),
         ...(input.rawErrorCode === undefined ? {} : { rawErrorCode: input.rawErrorCode }),
         ...(input.errorMessage === undefined ? {} : { errorMessage: input.errorMessage }),

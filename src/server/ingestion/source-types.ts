@@ -36,6 +36,7 @@ export type ScopeObservationResult =
   | {
       scopeId: string;
       observedAt: Date;
+      dataAsOf?: Date;
       status: "success";
       holdings: HoldingSnapshot[];
       metadata?: Record<string, unknown>;
@@ -43,6 +44,7 @@ export type ScopeObservationResult =
   | {
       scopeId: string;
       observedAt: Date;
+      dataAsOf?: Date;
       status: "partial";
       error: SourceObservationError;
       holdings: HoldingSnapshot[];
@@ -51,6 +53,7 @@ export type ScopeObservationResult =
   | {
       scopeId: string;
       observedAt: Date;
+      dataAsOf?: Date;
       status: "failed";
       error: SourceObservationError;
       holdings: [];
