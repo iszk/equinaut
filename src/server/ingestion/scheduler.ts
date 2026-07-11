@@ -1,4 +1,4 @@
-import { runBitbankIngestion, runBitflyerIngestion } from "./run.js";
+import { runBitbankIngestion, runBitflyerIngestion, runSaxoIngestion } from "./run.js";
 import type { IngestionRunResult } from "./run.js";
 import { redactSensitiveMessage } from "./redaction.js";
 import type { IngestionSourceId, SchedulerConfig, SchedulerSourceConfig } from "./scheduler-config.js";
@@ -11,6 +11,10 @@ export type SchedulerLogger = {
 
 type ScheduledSource = SchedulerSourceConfig & {
   nextRunAt: Date;
+};
+
+const assertNever = (value: never): never => {
+  throw new Error(`unsupported ingestion source id: ${String(value)}`);
 };
 
 export type SchedulerRunOptions = {
@@ -29,7 +33,11 @@ export const runIngestionSource = async (sourceId: IngestionSourceId): Promise<I
       return runBitbankIngestion();
     case "bitflyer":
       return runBitflyerIngestion();
+    case "saxo":
+      return runSaxoIngestion();
   }
+
+  return assertNever(sourceId);
 };
 
 const defaultSleep = (milliseconds: number, signal?: AbortSignal): Promise<void> => {

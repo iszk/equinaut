@@ -1,9 +1,10 @@
 import { createDbClient } from "../db/index.js";
-import { loadBitbankCredentials, loadBitflyerCredentials } from "../config/secrets.js";
+import { loadBitbankCredentials, loadBitflyerCredentials, loadSaxoPortfolioCredentials } from "../config/secrets.js";
 import { createBitbankHttpClient } from "../sources/bitbank/client.js";
 import { collectBitbankSpotAccount } from "../sources/bitbank/adapter.js";
 import { collectBitflyerAccounts } from "../sources/bitflyer/adapter.js";
 import { createBitflyerHttpClient } from "../sources/bitflyer/client.js";
+import { collectSaxoPortfolio, saxoPortfolioSourceConfig } from "../sources/saxo/adapter.js";
 import { createDrizzleIngestionPersistenceDriver, persistBitbankSpotObservation, persistSourceObservation } from "./persistence.js";
 import { redactSensitiveMessage } from "./redaction.js";
 import type { ScopeObservationResult } from "./source-types.js";
@@ -115,5 +116,40 @@ export const runBitflyerIngestion = async (): Promise<IngestionRunResult> => {
   return {
     status,
     message: `bitflyer ingestion ${status}: ${redactSensitiveMessage(summary)}`,
+  };
+};
+
+export const runSaxoIngestion = async (): Promise<IngestionRunResult> => {
+  const credentials = loadSaxoPortfolioCredentials();
+  if (credentials.status === "disabled") {
+    return { status: "failed", message: "saxo adapter disabled: missing portfolio API configuration" };
+  }
+
+  const result = await collectSaxoPortfolio({ credentials });
+
+  try {
+    const dbClient = createDbClient();
+    try {
+      await persistSourceObservation({
+        driver: createDrizzleIngestionPersistenceDriver(dbClient.db),
+        sourceId: saxoPortfolioSourceConfig.sourceId,
+        displayName: saxoPortfolioSourceConfig.displayName,
+        scopeType: saxoPortfolioSourceConfig.scopeType,
+        observation: result,
+      });
+    } finally {
+      await dbClient.close();
+    }
+  } catch (error) {
+    return { status: "failed", message: `saxo ingestion failed: persistence_error - ${errorDetail(error)}` };
+  }
+
+  if (result.status === "success") {
+    return { status: "success", message: `saxo ingestion succeeded: ${result.holdings.length} holdings collected` };
+  }
+
+  return {
+    status: result.status,
+    message: `saxo ingestion ${result.status}: ${result.error.code} - ${redactSensitiveMessage(result.error.message)}`,
   };
 };

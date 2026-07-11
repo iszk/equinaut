@@ -1,6 +1,6 @@
 # 実データ投入
 
-このプロジェクトは、bitbank / bitFlyer から取得した実ポートフォリオデータを PostgreSQL に投入します。MVP では CSV import や手動入力は意図的に対象外です。
+このプロジェクトは、bitbank / bitFlyer / Saxo から取得した実ポートフォリオデータを PostgreSQL に投入します。MVP では CSV import や手動入力は意図的に対象外です。
 
 ## 必要な環境変数
 
@@ -13,6 +13,8 @@ BITBANK_API_SECRET=change-me
 BITBANK_ACCESS_TIME_WINDOW_MS=1000
 BITFLYER_API_KEY=change-me
 BITFLYER_API_SECRET=change-me
+SAXO_PORTFOLIO_API_URL=https://portfolio.example/saxo
+SAXO_PORTFOLIO_API_SECRET=change-me
 ```
 
 Docker や secret mount を使う環境では、file-based secret 方式を推奨します。
@@ -24,6 +26,8 @@ BITBANK_API_SECRET_FILE=/run/secrets/bitbank_api_secret
 BITBANK_ACCESS_TIME_WINDOW_MS=1000
 BITFLYER_API_KEY_FILE=/run/secrets/bitflyer_api_key
 BITFLYER_API_SECRET_FILE=/run/secrets/bitflyer_api_secret
+SAXO_PORTFOLIO_API_URL=https://portfolio.example/saxo
+SAXO_PORTFOLIO_API_SECRET_FILE=/run/secrets/saxo_portfolio_api_secret
 ```
 
 補足:
@@ -32,6 +36,7 @@ BITFLYER_API_SECRET_FILE=/run/secrets/bitflyer_api_secret
 - `TEST_DATABASE_URL` は integration test 専用です。実資産データには使わないでください。
 - `.env.local` は Git 管理対象外です。`.env` より先に読み込まれますが、すでに設定済みの process environment は上書きしません。
 - `BITBANK_API_KEY_FILE` / `BITBANK_API_SECRET_FILE` / `BITFLYER_API_KEY_FILE` / `BITFLYER_API_SECRET_FILE` が設定されている場合、application はまず file contents を読みます。file が空、または読めない場合のみ plain env value に fallback します。
+- `SAXO_PORTFOLIO_API_SECRET_FILE` が設定されている場合、application はまず file contents を読みます。file が空、または読めない場合のみ `SAXO_PORTFOLIO_API_SECRET` に fallback します。
 
 ## database migration を適用する
 
@@ -56,6 +61,22 @@ bitbank ingestion succeeded: N holdings collected
 ```
 
 credentials が不足している場合、command は sanitized configuration message を出して non-zero exit します。secret は出力しません。
+
+## Saxo portfolio ingestion を実行する
+
+Saxo は `SAXO_PORTFOLIO_API_URL` に GET し、`SAXO_PORTFOLIO_API_SECRET` を `Authorization: Bearer ...` として送ります。レスポンスは `portfolio-snapshot.v1` contract に沿った完全 snapshot である必要があります。
+
+```bash
+npm run ingest:saxo
+```
+
+成功時は次のような出力になります。
+
+```text
+saxo ingestion succeeded: N holdings collected
+```
+
+Saxo adapter は `sourceId = saxo`、`scopeId = saxo:portfolio`、`scopeType = portfolio` として保存します。`generatedAt` は observation の `observed_at`、`dataAsOf` は `data_as_of` に反映します。contract 上の mapping 不可、未対応 asset class、schema mismatch は `partial` ではなく source scope 全体を `failed` にします。
 
 ## bitFlyer ingestion を実行する
 
@@ -105,11 +126,14 @@ sources:
   - id: bitflyer
     enabled: false
     intervalSeconds: 900
+  - id: saxo
+    enabled: false
+    intervalSeconds: 900
 ```
 
 - `runOnStart` が `true` の場合、起動直後に enabled source を一度実行します。
 - `intervalSeconds` を省略した source は `defaultIntervalSeconds` を使います。
-- 現在対応している source id は `bitbank` / `bitflyer` です。
+- 現在対応している source id は `bitbank` / `bitflyer` / `saxo` です。
 - source の実行に失敗しても scheduler process は継続し、次回 interval で再実行します。
 - Docker Compose の scheduler は 1 replica 前提です。複数 replica で同時起動すると、起動時 migration が競合する可能性があります。将来 scale する場合は migration 専用 service への分離を検討してください。
 

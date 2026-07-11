@@ -34,6 +34,7 @@ export type ScopeObservationInput = {
   observationScopeId: string;
   status: "success" | "partial" | "failed";
   observedAt: Date;
+  dataAsOf?: Date;
   errorCode?: string;
   rawErrorCode?: string;
   errorMessage?: string;
@@ -72,6 +73,7 @@ type DrizzleExecutor = Db | DrizzleTransaction;
 export type PersistSourceObservationInput = {
   sourceId: string;
   displayName: string;
+  scopeType?: string;
   observation: ScopeObservationResult;
 };
 
@@ -150,6 +152,7 @@ export const persistSourceObservation = async ({
   driver,
   sourceId,
   displayName,
+  scopeType,
   observation,
 }: {
   driver: IngestionPersistenceDriver;
@@ -159,7 +162,7 @@ export const persistSourceObservation = async ({
     const observationScope = await tx.upsertObservationScope({
       sourceAccountId: sourceAccount.id,
       scopeId: observation.scopeId,
-      scopeType: scopeTypeFor(observation.scopeId),
+      scopeType: scopeType ?? scopeTypeFor(observation.scopeId),
     });
     const error = errorFor(observation);
     const errorMetadata = error === undefined ? undefined : metadataFor(error);
@@ -177,6 +180,7 @@ export const persistSourceObservation = async ({
       observationScopeId: observationScope.id,
       status: observation.status,
       observedAt: observation.observedAt,
+      ...(observation.dataAsOf === undefined ? {} : { dataAsOf: observation.dataAsOf }),
       ...(error === undefined
         ? {}
         : {
@@ -283,6 +287,7 @@ const createDriverForExecutor = (executor: DrizzleExecutor): IngestionPersistenc
         observationScopeId: input.observationScopeId,
         status: input.status,
         observedAt: input.observedAt,
+        ...(input.dataAsOf === undefined ? {} : { dataAsOf: input.dataAsOf }),
         ...(input.errorCode === undefined ? {} : { errorCode: input.errorCode }),
         ...(input.rawErrorCode === undefined ? {} : { rawErrorCode: input.rawErrorCode }),
         ...(input.errorMessage === undefined ? {} : { errorMessage: input.errorMessage }),

@@ -12,6 +12,10 @@ export type BitflyerCredentials =
   | { status: "available"; apiKey: string; apiSecret: string }
   | { status: "disabled"; reason: "missing bitflyer credentials"; missing: string[] };
 
+export type SaxoPortfolioCredentials =
+  | { status: "available"; apiUrl: string; apiSecret: string }
+  | { status: "disabled"; reason: "missing saxo portfolio API configuration"; missing: string[] };
+
 type SecretInput = {
   filePath?: string | undefined;
   envValue?: string | undefined;
@@ -117,3 +121,33 @@ export const loadBitflyerCredentials = (env: BitflyerCredentialEnv = process.env
     labels: { apiKey: "BITFLYER_API_KEY", apiSecret: "BITFLYER_API_SECRET" },
     disabledReason: "missing bitflyer credentials",
   });
+
+type SaxoPortfolioCredentialEnv = {
+  SAXO_PORTFOLIO_API_URL?: string | undefined;
+  SAXO_PORTFOLIO_API_SECRET_FILE?: string | undefined;
+  SAXO_PORTFOLIO_API_SECRET?: string | undefined;
+};
+
+export const loadSaxoPortfolioCredentials = (
+  env: SaxoPortfolioCredentialEnv = process.env,
+): SaxoPortfolioCredentials => {
+  const apiUrl = env.SAXO_PORTFOLIO_API_URL?.trim();
+  const apiSecret = readSecret({
+    filePath: env.SAXO_PORTFOLIO_API_SECRET_FILE,
+    envValue: env.SAXO_PORTFOLIO_API_SECRET,
+    label: "SAXO_PORTFOLIO_API_SECRET",
+  });
+
+  if (apiUrl === undefined || apiUrl === "" || apiSecret.status === "missing") {
+    return {
+      status: "disabled",
+      reason: "missing saxo portfolio API configuration",
+      missing: [
+        ...(apiUrl === undefined || apiUrl === "" ? ["SAXO_PORTFOLIO_API_URL"] : []),
+        ...(apiSecret.status === "missing" ? ["SAXO_PORTFOLIO_API_SECRET"] : []),
+      ],
+    };
+  }
+
+  return { status: "available", apiUrl, apiSecret: apiSecret.value };
+};

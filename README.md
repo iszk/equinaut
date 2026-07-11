@@ -4,7 +4,7 @@ Personal financial asset dashboard.
 
 ## Current MVP direction
 
-- Sources: bitbank spot, bitFlyer spot / Crypto CFD
+- Sources: bitbank spot, bitFlyer spot / Crypto CFD, Saxo portfolio snapshot API
 - Input: scraper/API automatic ingestion only; no CSV import or manual entry
 - Database: PostgreSQL
 - Language: TypeScript strict mode
@@ -25,14 +25,16 @@ npm run db:generate
 ```bash
 npm run db:migrate
 npm run ingest:bitbank
+npm run ingest:saxo
 ```
 
 必要な環境変数、file-mounted secret 方式、verification SQL は [docs/ingestion.md](docs/ingestion.md) を参照してください。
 
-Manual bitbank ingestion entrypoint:
+Manual bitbank / Saxo ingestion entrypoints:
 
 ```bash
 npm run ingest:bitbank
+npm run ingest:saxo
 ```
 
 Manual bitFlyer ingestion entrypoint:

@@ -49,6 +49,19 @@ sources:
     });
   });
 
+  it("accepts saxo as a known source id", () => {
+    expect(
+      parseSchedulerConfig(`
+scheduler:
+  defaultIntervalSeconds: 900
+sources:
+  - id: saxo
+`),
+    ).toMatchObject({
+      sources: [{ id: "saxo", enabled: true, intervalSeconds: 900 }],
+    });
+  });
+
   it("rejects duplicate source ids", () => {
     expect(() =>
       parseSchedulerConfig(`
