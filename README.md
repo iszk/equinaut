@@ -30,7 +30,7 @@ npm run ingest:saxo
 
 必要な環境変数、file-mounted secret 方式、verification SQL は [docs/ingestion.md](docs/ingestion.md) を参照してください。
 
-Manual ingestion entrypoints:
+Manual bitbank / Saxo ingestion entrypoints:
 
 ```bash
 npm run ingest:bitbank

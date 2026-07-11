@@ -8,8 +8,16 @@ if (source !== "bitbank" && source !== "bitflyer" && source !== "saxo") {
   process.exit(1);
 }
 
-const result =
-  source === "bitbank" ? await runBitbankIngestion() : source === "bitflyer" ? await runBitflyerIngestion() : await runSaxoIngestion();
+const result = await (async () => {
+  switch (source) {
+    case "bitbank":
+      return runBitbankIngestion();
+    case "bitflyer":
+      return runBitflyerIngestion();
+    case "saxo":
+      return runSaxoIngestion();
+  }
+})();
 const output = result.status === "success" ? console.log : console.error;
 output(result.message);
 
