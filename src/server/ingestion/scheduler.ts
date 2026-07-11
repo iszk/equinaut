@@ -13,6 +13,10 @@ type ScheduledSource = SchedulerSourceConfig & {
   nextRunAt: Date;
 };
 
+const assertNever = (value: never): never => {
+  throw new Error(`unsupported ingestion source id: ${String(value)}`);
+};
+
 export type SchedulerRunOptions = {
   config: SchedulerConfig;
   runSource?: (sourceId: IngestionSourceId) => Promise<IngestionRunResult>;
@@ -32,6 +36,8 @@ export const runIngestionSource = async (sourceId: IngestionSourceId): Promise<I
     case "saxo":
       return runSaxoIngestion();
   }
+
+  return assertNever(sourceId);
 };
 
 const defaultSleep = (milliseconds: number, signal?: AbortSignal): Promise<void> => {

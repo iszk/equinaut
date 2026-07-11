@@ -134,6 +134,7 @@ export const runSaxoIngestion = async (): Promise<IngestionRunResult> => {
         driver: createDrizzleIngestionPersistenceDriver(dbClient.db),
         sourceId: saxoPortfolioSourceConfig.sourceId,
         displayName: saxoPortfolioSourceConfig.displayName,
+        scopeType: saxoPortfolioSourceConfig.scopeType,
         observation: result,
       });
     } finally {

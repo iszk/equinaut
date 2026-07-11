@@ -191,6 +191,7 @@ describe("persistSourceObservation", () => {
       driver,
       sourceId: "saxo",
       displayName: "Saxo Bank",
+      scopeType: "portfolio",
       observation: {
         scopeId: "saxo:portfolio",
         observedAt,
@@ -202,6 +203,25 @@ describe("persistSourceObservation", () => {
 
     expect(scopeObservations[0]?.dataAsOf).toEqual(dataAsOf);
     expect(calls[2]).toBe("upsertObservationScope:source-account-id:saxo:portfolio:portfolio");
+  });
+
+  it("uses explicit scope type instead of deriving it from scope id", async () => {
+    const { calls, driver } = createRecordingDriver();
+
+    await persistSourceObservation({
+      driver,
+      sourceId: "custom",
+      displayName: "Custom Source",
+      scopeType: "portfolio",
+      observation: {
+        scopeId: "custom:portfolio",
+        observedAt,
+        status: "success",
+        holdings: [],
+      },
+    });
+
+    expect(calls[2]).toBe("upsertObservationScope:source-account-id:custom:portfolio:portfolio");
   });
 
   it("merges observation metadata with safe error metadata", async () => {

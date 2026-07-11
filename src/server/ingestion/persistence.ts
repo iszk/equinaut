@@ -73,6 +73,7 @@ type DrizzleExecutor = Db | DrizzleTransaction;
 export type PersistSourceObservationInput = {
   sourceId: string;
   displayName: string;
+  scopeType?: string;
   observation: ScopeObservationResult;
 };
 
@@ -87,10 +88,6 @@ const scopeTypeFor = (scopeId: string): string => {
 
   if (scopeId === "bitflyer:cfd_account") {
     return "cfd_account";
-  }
-
-  if (scopeId === "saxo:portfolio") {
-    return "portfolio";
   }
 
   return scopeId;
@@ -155,6 +152,7 @@ export const persistSourceObservation = async ({
   driver,
   sourceId,
   displayName,
+  scopeType,
   observation,
 }: {
   driver: IngestionPersistenceDriver;
@@ -164,7 +162,7 @@ export const persistSourceObservation = async ({
     const observationScope = await tx.upsertObservationScope({
       sourceAccountId: sourceAccount.id,
       scopeId: observation.scopeId,
-      scopeType: scopeTypeFor(observation.scopeId),
+      scopeType: scopeType ?? scopeTypeFor(observation.scopeId),
     });
     const error = errorFor(observation);
     const errorMetadata = error === undefined ? undefined : metadataFor(error);

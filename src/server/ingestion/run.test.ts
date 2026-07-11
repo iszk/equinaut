@@ -213,6 +213,7 @@ describe("runSaxoIngestion", () => {
       driver: { driver: true },
       sourceId: "saxo",
       displayName: "Saxo Bank",
+      scopeType: "portfolio",
       observation: expect.objectContaining({ scopeId: "saxo:portfolio" }),
     });
   });
