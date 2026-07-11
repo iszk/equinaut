@@ -70,6 +70,8 @@ scope ごとの実測点に近い推移を確認したい場合は、`portfolio-
 
 CFD bucket は `asset_type = 'cfd'` の holding を `CFD` として集約します。`scope_type = 'cfd_account'` の証拠金 cash / crypto は、個別の valuation category としてそのまま扱います。
 
+allocation は `value_jpy` を集計するため、CFD の notional / exposure は pie chart の対象外です。`value_jpy` の評価額 semantics は [実データ投入](ingestion.md#asset-snapshot-の評価額-semantics) を参照してください。`asset-allocation.sql` は正の bucket だけを表示するため、0 以下の CFD 評価損益コンポーネントは pie chart から除外されることがあります。
+
 ### 最新保有資産
 
 `portfolio_latest_assets` を table として表示します。`quantity`, `price`, `value_jpy`, `observed_at` を確認できます。

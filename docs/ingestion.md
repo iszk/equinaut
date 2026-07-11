@@ -1,6 +1,6 @@
 # 実データ投入
 
-このプロジェクトは、証券・暗号資産 source から取得した実ポートフォリオデータを PostgreSQL に投入します。MVP では CSV import や手動入力は意図的に対象外です。
+このプロジェクトは、bitbank / bitFlyer / Saxo から取得した実ポートフォリオデータを PostgreSQL に投入します。MVP では CSV import や手動入力は意図的に対象外です。
 
 ## 必要な環境変数
 
@@ -11,6 +11,8 @@ DATABASE_URL=postgres://equinaut:***@localhost:5432/equinaut
 BITBANK_API_KEY=change-me
 BITBANK_API_SECRET=change-me
 BITBANK_ACCESS_TIME_WINDOW_MS=1000
+BITFLYER_API_KEY=change-me
+BITFLYER_API_SECRET=change-me
 SAXO_PORTFOLIO_API_URL=https://portfolio.example/saxo
 SAXO_PORTFOLIO_API_SECRET=change-me
 ```
@@ -22,6 +24,8 @@ DATABASE_URL=postgres://equinaut:***@postgres:5432/equinaut
 BITBANK_API_KEY_FILE=/run/secrets/bitbank_api_key
 BITBANK_API_SECRET_FILE=/run/secrets/bitbank_api_secret
 BITBANK_ACCESS_TIME_WINDOW_MS=1000
+BITFLYER_API_KEY_FILE=/run/secrets/bitflyer_api_key
+BITFLYER_API_SECRET_FILE=/run/secrets/bitflyer_api_secret
 SAXO_PORTFOLIO_API_URL=https://portfolio.example/saxo
 SAXO_PORTFOLIO_API_SECRET_FILE=/run/secrets/saxo_portfolio_api_secret
 ```
@@ -31,7 +35,7 @@ SAXO_PORTFOLIO_API_SECRET_FILE=/run/secrets/saxo_portfolio_api_secret
 - `DATABASE_URL` は実データ投入と Grafana 向け view の参照先です。
 - `TEST_DATABASE_URL` は integration test 専用です。実資産データには使わないでください。
 - `.env.local` は Git 管理対象外です。`.env` より先に読み込まれますが、すでに設定済みの process environment は上書きしません。
-- `BITBANK_API_KEY_FILE` または `BITBANK_API_SECRET_FILE` が設定されている場合、application はまず file contents を読みます。file が空、または読めない場合のみ plain env value に fallback します。
+- `BITBANK_API_KEY_FILE` / `BITBANK_API_SECRET_FILE` / `BITFLYER_API_KEY_FILE` / `BITFLYER_API_SECRET_FILE` が設定されている場合、application はまず file contents を読みます。file が空、または読めない場合のみ plain env value に fallback します。
 - `SAXO_PORTFOLIO_API_SECRET_FILE` が設定されている場合、application はまず file contents を読みます。file が空、または読めない場合のみ `SAXO_PORTFOLIO_API_SECRET` に fallback します。
 
 ## database migration を適用する
@@ -74,6 +78,22 @@ saxo ingestion succeeded: N holdings collected
 
 Saxo adapter は `sourceId = saxo`、`scopeId = saxo:portfolio`、`scopeType = portfolio` として保存します。`generatedAt` は observation の `observed_at`、`dataAsOf` は `data_as_of` に反映します。contract 上の mapping 不可、未対応 asset class、schema mismatch は `partial` ではなく source scope 全体を `failed` にします。
 
+## bitFlyer ingestion を実行する
+
+```bash
+npx tsx scripts/ingest.ts bitflyer
+```
+
+bitFlyer ingestion は `bitflyer:spot_account` と `bitflyer:cfd_account` の 2 scope を投入します。現物残高は `cash` / `crypto` として保存し、Crypto CFD は通貨別証拠金を `cash` / `crypto`、`open_position_pnl` を `asset_type = cfd` の synthetic holding として保存します。
+
+成功時は次のような出力になります。
+
+```text
+bitflyer ingestion succeeded: N holdings collected (bitflyer:spot_account:success:N, bitflyer:cfd_account:success:N)
+```
+
+credentials が不足している場合、command は sanitized configuration message を出して non-zero exit します。secret は出力しません。
+
 ## scheduler で定期実行する
 
 scheduler は YAML 設定ファイルで enabled source と実行間隔を管理します。API key / API secret / `DATABASE_URL` などの secret は設定ファイルには入れず、`.env` または Docker secrets で設定してください。
@@ -102,6 +122,9 @@ scheduler:
 sources:
   - id: bitbank
     enabled: true
+    intervalSeconds: 900
+  - id: bitflyer
+    enabled: false
     intervalSeconds: 900
   - id: saxo
     enabled: false
@@ -147,14 +170,32 @@ order by latest_observed_at desc;
 
 `portfolio_asset_allocation` は `source_id` / `scope_id` 単位で scoped されています。複数 scope を扱う場合は、Grafana の filter または label にこれらの field を含めてください。
 
-`asset_snapshots.asset_type` は厳密な金融商品 taxonomy ではなく、dashboard 上で合算・allocation 表示するための valuation category です。CFD では notional / exposure を asset snapshot に保存せず、総資産に加算してよい評価額または評価損益コンポーネントだけを `asset_type = cfd` として保存します。
+## asset snapshot の評価額 semantics
+
+`asset_snapshots.asset_type` は厳密な金融商品 taxonomy ではなく、dashboard 上で合算・allocation 表示するための valuation category です。許可値は `cash` / `crypto` / `stock` / `fund` / `cfd` です。
+
+`value_jpy` は dashboard の総資産・allocation に加算する JPY 評価額です。notional / exposure / contract value を機械的に表すものではありません。
+
+`quantity` / `price` / `price_currency` / `fx_to_jpy` は原則として `value_jpy` の説明に使える valuation inputs です。ただし、すべての `asset_type` で `quantity * price * fx_to_jpy = value_jpy` が成り立つことは要求しません。
+
+`raw` には source が返した元の price / currency / quantity / notional / metadata を保存します。API key、Authorization header、Cookie などの secret は保存しません。
+
+`asset_type` 別の意味は次の通りです。
+
+| asset_type | value_jpy の意味 |
+| --- | --- |
+| `cash` | JPY 換算後の現金残高 |
+| `crypto` / `stock` / `fund` | market value。原則として price 等から概ね説明可能な評価額 |
+| `cfd` | 総資産に加算してよい equity contribution または unrealized PnL component。notional / exposure ではない |
+
+CFD では notional / exposure を asset snapshot の `value_jpy` に保存しません。source price / source quantity / notional が必要な場合は `raw` に保持し、総資産に加算してよい評価額または評価損益コンポーネントだけを `asset_type = cfd` として保存します。
 
 ## 運用手順
 
 1. 最新 migration を含む code を deploy します。
 2. 対象環境に `DATABASE_URL` と有効化する source の credentials を設定します。
 3. Docker Compose の scheduler service では、起動時に `npm run db:migrate` が実行されます。手動運用の場合は scheduler / ingestion 起動前に `npm run db:migrate` を実行してください。
-4. `npm run ingest:bitbank` / `npm run ingest:saxo` を手動、または scheduler から実行します。
+4. 対象 source の ingestion を手動、または scheduler から実行します。
 5. dashboard views が rows を返すことを確認します。
 6. Grafana には同じ database を read-only role で参照させます。
 

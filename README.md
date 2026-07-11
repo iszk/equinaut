@@ -4,7 +4,7 @@ Personal financial asset dashboard.
 
 ## Current MVP direction
 
-- Initial sources: bitbank / bitFlyer / Saxo portfolio snapshot API
+- Sources: bitbank spot, bitFlyer spot / Crypto CFD, Saxo portfolio snapshot API
 - Input: scraper/API automatic ingestion only; no CSV import or manual entry
 - Database: PostgreSQL
 - Language: TypeScript strict mode
@@ -37,4 +37,10 @@ npm run ingest:bitbank
 npm run ingest:saxo
 ```
 
-Without source credentials, the command exits non-zero with a sanitized configuration message.
+Manual bitFlyer ingestion entrypoint:
+
+```bash
+npx tsx scripts/ingest.ts bitflyer
+```
+
+Without required credentials, the command exits non-zero with a sanitized configuration message.
