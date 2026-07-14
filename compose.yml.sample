@@ -1,25 +1,48 @@
 services:
 
-  scheduler:
+  ingestion-worker:
     restart: unless-stopped
-    image: equinaut-scheduler:local
+    image: equinaut-ingestion:local
     build:
       context: .
+    command:
+      - sleep
+      - infinity
     environment:
       - TZ=Asia/Tokyo
       - LANG=C.UTF-8
       - DATABASE_URL=postgres://${POSTGRES_USER:-equinaut}:${POSTGRES_PASSWORD:-equinaut}@postgres:5432/${POSTGRES_DB:-equinaut}
-      - BITBANK_API_KEY=${BITBANK_API_KEY:-}
-      - BITBANK_API_SECRET=${BITBANK_API_SECRET:-}
-      - BITBANK_API_KEY_FILE=${BITBANK_API_KEY_FILE:-}
-      - BITBANK_API_SECRET_FILE=${BITBANK_API_SECRET_FILE:-}
+      - BITBANK_API_KEY_FILE=/run/secrets/bitbank_api_key
+      - BITBANK_API_SECRET_FILE=/run/secrets/bitbank_api_secret
       - BITBANK_ACCESS_TIME_WINDOW_MS=${BITBANK_ACCESS_TIME_WINDOW_MS:-5000}
+      - BITFLYER_API_KEY_FILE=/run/secrets/bitflyer_api_key
+      - BITFLYER_API_SECRET_FILE=/run/secrets/bitflyer_api_secret
+      - SAXO_PORTFOLIO_API_URL=${SAXO_PORTFOLIO_API_URL:-}
+      - SAXO_PORTFOLIO_API_SECRET_FILE=/run/secrets/saxo_portfolio_api_secret
     init: true
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ./config:/app/config:ro
+    secrets:
+      - bitbank_api_key
+      - bitbank_api_secret
+      - bitflyer_api_key
+      - bitflyer_api_secret
+      - saxo_portfolio_api_secret
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.equinaut-bitbank-ingestion.schedule: "0 0,15,30,45 * * * *"
+      ofelia.job-exec.equinaut-bitbank-ingestion.command: "/usr/bin/timeout --signal=TERM --kill-after=30s 10m npm run ingest -- bitbank"
+      ofelia.job-exec.equinaut-bitbank-ingestion.no-overlap: "true"
+      ofelia.job-exec.equinaut-bitbank-ingestion.user: "node"
+      ofelia.job-exec.equinaut-bitflyer-ingestion.schedule: "0 5,20,35,50 * * * *"
+      ofelia.job-exec.equinaut-bitflyer-ingestion.command: "/usr/bin/timeout --signal=TERM --kill-after=30s 10m npm run ingest -- bitflyer"
+      ofelia.job-exec.equinaut-bitflyer-ingestion.no-overlap: "true"
+      ofelia.job-exec.equinaut-bitflyer-ingestion.user: "node"
+      ofelia.job-exec.equinaut-saxo-ingestion.schedule: "0 10,25,40,55 * * * *"
+      ofelia.job-exec.equinaut-saxo-ingestion.command: "/usr/bin/timeout --signal=TERM --kill-after=30s 10m npm run ingest -- saxo"
+      ofelia.job-exec.equinaut-saxo-ingestion.no-overlap: "true"
+      ofelia.job-exec.equinaut-saxo-ingestion.user: "node"
 
   postgres:
     restart: unless-stopped
@@ -43,3 +66,15 @@ services:
 
 volumes:
   pg-data:
+
+secrets:
+  bitbank_api_key:
+    file: ${EQUINAUT_SECRETS_DIR:-./secrets}/bitbank_api_key
+  bitbank_api_secret:
+    file: ${EQUINAUT_SECRETS_DIR:-./secrets}/bitbank_api_secret
+  bitflyer_api_key:
+    file: ${EQUINAUT_SECRETS_DIR:-./secrets}/bitflyer_api_key
+  bitflyer_api_secret:
+    file: ${EQUINAUT_SECRETS_DIR:-./secrets}/bitflyer_api_secret
+  saxo_portfolio_api_secret:
+    file: ${EQUINAUT_SECRETS_DIR:-./secrets}/saxo_portfolio_api_secret
