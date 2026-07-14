@@ -1,8 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
+import { INGESTION_SOURCE_IDS } from "./source-registry.js";
+import type { IngestionSourceId } from "./source-registry.js";
 
-const knownSourceIdSchema = z.enum(["bitbank", "bitflyer", "saxo"]);
+const knownSourceIdSchema = z.enum(INGESTION_SOURCE_IDS);
 
 const rawSourceConfigSchema = z.object({
   id: knownSourceIdSchema,
@@ -22,8 +24,6 @@ const rawSchedulerConfigSchema = z
     sources: z.array(rawSourceConfigSchema.strict()).min(1),
   })
   .strict();
-
-export type IngestionSourceId = z.infer<typeof knownSourceIdSchema>;
 
 export type SchedulerSourceConfig = {
   id: IngestionSourceId;

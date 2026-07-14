@@ -1,7 +1,8 @@
 import { runBitbankIngestion, runBitflyerIngestion, runSaxoIngestion } from "./run.js";
 import type { IngestionRunResult } from "./run.js";
 import { redactSensitiveMessage } from "./redaction.js";
-import type { IngestionSourceId, SchedulerConfig, SchedulerSourceConfig } from "./scheduler-config.js";
+import type { SchedulerConfig, SchedulerSourceConfig } from "./scheduler-config.js";
+import type { IngestionSourceId } from "./source-registry.js";
 
 export type SchedulerLogger = {
   info: (message: string) => void;
