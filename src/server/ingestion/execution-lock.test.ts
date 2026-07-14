@@ -6,6 +6,7 @@ import {
   executeIngestionSource,
   INGESTION_ADVISORY_LOCK_NAMESPACE,
   INGESTION_SOURCE_LOCK_KEYS,
+  IngestionSourceExecutionError,
 } from "./execution-lock.js";
 
 const tryAcquire = vi.fn<SourceExecutionLockSession["tryAcquire"]>();
@@ -76,6 +77,35 @@ describe("executeIngestionSource", () => {
     runSource.mockRejectedValue(new Error("runner failed"));
 
     await expect(executeIngestionSource("bitflyer", { createLockSession, runSource })).rejects.toThrow("runner failed");
+    expect(unlock).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the runner error primary when unlock and close also fail", async () => {
+    const runnerError = new Error("runner failed token=PRIMARY");
+    runSource.mockRejectedValue(runnerError);
+    unlock.mockRejectedValue(new Error("unlock failed apiSecret=SECONDARY"));
+    close.mockRejectedValue(new Error("close failed password=TERTIARY"));
+
+    let thrown: unknown;
+    try {
+      await executeIngestionSource("bitbank", { createLockSession, runSource });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(IngestionSourceExecutionError);
+    if (!(thrown instanceof IngestionSourceExecutionError)) {
+      throw new Error("expected IngestionSourceExecutionError");
+    }
+    expect(thrown.message).toBe(
+      "ingestion source execution failed: primary=runner failed token=[REDACTED]; secondary=ingestion execution lock release failed: source=bitbank message=unlock failed apiSecret=[REDACTED] | ingestion execution lock close failed: source=bitbank message=close failed password=[REDACTED]",
+    );
+    expect(thrown.primaryError).toBe(runnerError);
+    expect(thrown.secondaryErrors.map((error) => error.message)).toEqual([
+      "ingestion execution lock release failed: source=bitbank message=unlock failed apiSecret=[REDACTED]",
+      "ingestion execution lock close failed: source=bitbank message=close failed password=[REDACTED]",
+    ]);
     expect(unlock).toHaveBeenCalledOnce();
     expect(close).toHaveBeenCalledOnce();
   });

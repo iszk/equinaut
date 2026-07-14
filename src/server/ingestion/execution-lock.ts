@@ -67,6 +67,28 @@ const lockError = (
     `ingestion execution lock ${operation} failed: source=${sourceId} message=${errorDetail(error)}`,
   );
 
+export class IngestionSourceExecutionError extends AggregateError {
+  readonly primaryError: unknown;
+  readonly secondaryErrors: readonly IngestionExecutionLockError[];
+
+  constructor(primaryError: unknown, secondaryErrors: readonly IngestionExecutionLockError[]) {
+    const frozenSecondaryErrors = Object.freeze([...secondaryErrors]);
+    super(
+      [primaryError, ...frozenSecondaryErrors],
+      `ingestion source execution failed: primary=${errorDetail(primaryError)}; secondary=${frozenSecondaryErrors
+        .map((error) => errorDetail(error))
+        .join(" | ")}`,
+    );
+    this.name = "IngestionSourceExecutionError";
+    this.primaryError = primaryError;
+    this.secondaryErrors = frozenSecondaryErrors;
+  }
+}
+
+type SourceExecutionOutcome =
+  | { kind: "result"; result: IngestionExecutionResult }
+  | { kind: "error"; error: unknown };
+
 const firstBoolean = <Key extends "acquired" | "unlocked">(
   rows: readonly Record<Key, boolean>[],
   key: Key,
@@ -140,18 +162,20 @@ export const executeIngestionSource = async (
 ): Promise<IngestionExecutionResult> => {
   const createLockSession = options.createLockSession ?? createPostgresLockSession;
   const runSource = options.runSource ?? runIngestionSource;
-  let session: SourceExecutionLockSession | undefined;
+  let session: SourceExecutionLockSession;
 
   try {
-    try {
-      session = await createLockSession(options.databaseUrl);
-    } catch (error) {
-      throw lockError("open", sourceId, error);
-    }
+    session = await createLockSession(options.databaseUrl);
+  } catch (error) {
+    throw lockError("open", sourceId, error);
+  }
 
-    const namespace = INGESTION_ADVISORY_LOCK_NAMESPACE;
-    const sourceKey = INGESTION_SOURCE_LOCK_KEYS[sourceId];
-    let acquired: boolean;
+  const namespace = INGESTION_ADVISORY_LOCK_NAMESPACE;
+  const sourceKey = INGESTION_SOURCE_LOCK_KEYS[sourceId];
+  let acquired = false;
+  let outcome: SourceExecutionOutcome;
+
+  try {
     try {
       acquired = await session.tryAcquire(namespace, sourceKey);
     } catch (error) {
@@ -159,31 +183,57 @@ export const executeIngestionSource = async (
     }
 
     if (!acquired) {
-      return {
-        status: "skipped_overlap",
-        message: `${sourceId} ingestion skipped_overlap: another execution is already running`,
+      outcome = {
+        kind: "result",
+        result: {
+          status: "skipped_overlap",
+          message: `${sourceId} ingestion skipped_overlap: another execution is already running`,
+        },
       };
+    } else {
+      try {
+        outcome = { kind: "result", result: await runSource(sourceId) };
+      } catch (error) {
+        outcome = { kind: "error", error };
+      }
     }
+  } catch (error) {
+    outcome = { kind: "error", error };
+  }
 
+  const cleanupErrors: IngestionExecutionLockError[] = [];
+  if (acquired) {
     try {
-      return await runSource(sourceId);
-    } finally {
-      try {
-        const unlocked = await session.unlock(namespace, sourceKey);
-        if (!unlocked) {
-          throw new Error("reserved session did not hold the advisory lock");
-        }
-      } catch (error) {
-        throw lockError("release", sourceId, error);
+      const unlocked = await session.unlock(namespace, sourceKey);
+      if (!unlocked) {
+        throw new Error("reserved session did not hold the advisory lock");
       }
-    }
-  } finally {
-    if (session !== undefined) {
-      try {
-        await session.close();
-      } catch (error) {
-        throw lockError("close", sourceId, error);
-      }
+    } catch (error) {
+      cleanupErrors.push(lockError("release", sourceId, error));
     }
   }
+
+  try {
+    await session.close();
+  } catch (error) {
+    cleanupErrors.push(lockError("close", sourceId, error));
+  }
+
+  // 一次 error を先頭に保ち、cleanup error は原因を失わない secondary error として付加する。
+  if (outcome.kind === "error") {
+    if (cleanupErrors.length === 0) {
+      throw outcome.error;
+    }
+    throw new IngestionSourceExecutionError(outcome.error, cleanupErrors);
+  }
+
+  const [cleanupPrimaryError, ...secondaryCleanupErrors] = cleanupErrors;
+  if (cleanupPrimaryError !== undefined) {
+    if (secondaryCleanupErrors.length === 0) {
+      throw cleanupPrimaryError;
+    }
+    throw new IngestionSourceExecutionError(cleanupPrimaryError, secondaryCleanupErrors);
+  }
+
+  return outcome.result;
 };
