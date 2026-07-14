@@ -44,6 +44,25 @@ services:
       ofelia.job-exec.equinaut-saxo-ingestion.no-overlap: "true"
       ofelia.job-exec.equinaut-saxo-ingestion.user: "node"
 
+  migration:
+    restart: "no"
+    image: equinaut-ingestion:local
+    build:
+      context: .
+    command:
+      - npm
+      - run
+      - db:migrate
+    profiles:
+      - tools
+    environment:
+      - TZ=Asia/Tokyo
+      - LANG=C.UTF-8
+      - DATABASE_URL=postgres://${POSTGRES_USER:-equinaut}:${POSTGRES_PASSWORD:-equinaut}@postgres:5432/${POSTGRES_DB:-equinaut}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     restart: unless-stopped
     container_name: equinaut-pg

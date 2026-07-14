@@ -148,4 +148,40 @@ describe("Compose runtime configuration", () => {
       /DATABASE_URL|POSTGRES_PASSWORD|API_KEY|API_SECRET|AUTHORIZATION|COOKIE|TOKEN/iu,
     );
   });
+
+  it("separates database migration into an explicitly targeted one-shot service", () => {
+    const config = readComposeConfig();
+    const worker = config.services["ingestion-worker"];
+    const migration = config.services.migration;
+
+    expect(migration, "migration service").toBeDefined();
+    if (migration === undefined) {
+      return;
+    }
+
+    expect(migration).toMatchObject({
+      restart: "no",
+      image: "equinaut-ingestion:local",
+      build: { context: "." },
+      command: ["npm", "run", "db:migrate"],
+      profiles: ["tools"],
+      depends_on: { postgres: { condition: "service_healthy" } },
+    });
+    expect(migration.environment).toEqual(
+      expect.arrayContaining(["TZ=Asia/Tokyo", "LANG=C.UTF-8", expect.stringMatching(/^DATABASE_URL=/u)]),
+    );
+    expect(migration.labels).toBeUndefined();
+    expect(migration.secrets).toBeUndefined();
+    expect(worker?.depends_on?.migration).toBeUndefined();
+  });
+
+  it("builds dependencies once and has a migration-free worker image default", () => {
+    const dockerfile = readProjectFile("Dockerfile");
+    const commands = nonEmptyLines(dockerfile).filter((line) => line.startsWith("CMD "));
+
+    expect(dockerfile).toContain("RUN npm ci");
+    expect(dockerfile).toContain("RUN /usr/bin/timeout --version >/dev/null");
+    expect(dockerfile).toContain("USER node");
+    expect(commands).toEqual(['CMD ["sleep", "infinity"]']);
+  });
 });
