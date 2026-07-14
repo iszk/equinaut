@@ -1,7 +1,8 @@
-import { runBitbankIngestion, runBitflyerIngestion, runSaxoIngestion } from "./run.js";
-import type { IngestionRunResult } from "./run.js";
+import { executeIngestionSource } from "./execution-lock.js";
+import type { IngestionExecutionResult } from "./execution-lock.js";
 import { redactSensitiveMessage } from "./redaction.js";
-import type { IngestionSourceId, SchedulerConfig, SchedulerSourceConfig } from "./scheduler-config.js";
+import type { SchedulerConfig, SchedulerSourceConfig } from "./scheduler-config.js";
+import type { IngestionSourceId } from "./source-registry.js";
 
 export type SchedulerLogger = {
   info: (message: string) => void;
@@ -13,31 +14,14 @@ type ScheduledSource = SchedulerSourceConfig & {
   nextRunAt: Date;
 };
 
-const assertNever = (value: never): never => {
-  throw new Error(`unsupported ingestion source id: ${String(value)}`);
-};
-
 export type SchedulerRunOptions = {
   config: SchedulerConfig;
-  runSource?: (sourceId: IngestionSourceId) => Promise<IngestionRunResult>;
+  runSource?: (sourceId: IngestionSourceId) => Promise<IngestionExecutionResult>;
   logger?: SchedulerLogger;
   signal?: AbortSignal;
   now?: () => Date;
   sleep?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
   maxSourceRuns?: number;
-};
-
-export const runIngestionSource = async (sourceId: IngestionSourceId): Promise<IngestionRunResult> => {
-  switch (sourceId) {
-    case "bitbank":
-      return runBitbankIngestion();
-    case "bitflyer":
-      return runBitflyerIngestion();
-    case "saxo":
-      return runSaxoIngestion();
-  }
-
-  return assertNever(sourceId);
 };
 
 const defaultSleep = (milliseconds: number, signal?: AbortSignal): Promise<void> => {
@@ -81,7 +65,7 @@ const dueSources = (scheduledSources: ScheduledSource[], now: Date): ScheduledSo
 
 export const runScheduledIngestion = async ({
   config,
-  runSource = runIngestionSource,
+  runSource = executeIngestionSource,
   logger = console,
   signal,
   now = () => new Date(),
@@ -114,6 +98,10 @@ export const runScheduledIngestion = async ({
         const result = await runSource(source.id);
         if (result.status === "success") {
           logger.info(`ingestion scheduler source succeeded: source=${source.id} message=${redactSensitiveMessage(result.message)}`);
+        } else if (result.status === "skipped_overlap") {
+          logger.warn(
+            `ingestion scheduler source skipped: source=${source.id} status=${result.status} message=${redactSensitiveMessage(result.message)}`,
+          );
         } else {
           logger.error(
             `ingestion scheduler source failed: source=${source.id} status=${result.status} message=${redactSensitiveMessage(result.message)}`,

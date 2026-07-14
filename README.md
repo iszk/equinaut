@@ -24,23 +24,17 @@ npm run db:generate
 
 ```bash
 npm run db:migrate
-npm run ingest:bitbank
-npm run ingest:saxo
+npm run ingest -- bitbank
+npm run ingest -- bitflyer
+npm run ingest -- saxo
 ```
 
 必要な環境変数、file-mounted secret 方式、verification SQL は [docs/ingestion.md](docs/ingestion.md) を参照してください。
 
-Manual bitbank / Saxo ingestion entrypoints:
+one-shot ingestion は source ID を引数に取る共通 entrypoint から実行します。
 
 ```bash
-npm run ingest:bitbank
-npm run ingest:saxo
+npm run ingest -- <bitbank|bitflyer|saxo>
 ```
 
-Manual bitFlyer ingestion entrypoint:
-
-```bash
-npx tsx scripts/ingest.ts bitflyer
-```
-
-Without required credentials, the command exits non-zero with a sanitized configuration message.
+必要な credentials がない場合は sanitized configuration message を出力して non-zero exit します。同じ source が実行中の場合は `skipped_overlap` warning を出力し、API / persistence を実行せず exit code 0 で終了します。

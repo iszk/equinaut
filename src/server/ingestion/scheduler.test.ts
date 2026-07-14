@@ -110,6 +110,29 @@ describe("runScheduledIngestion", () => {
     );
   });
 
+  it("warns and continues scheduling when a source is skipped for overlap", async () => {
+    const runSource = vi.fn().mockResolvedValue({
+      status: "skipped_overlap",
+      message: "bitbank ingestion skipped_overlap: another execution is already running",
+    });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    await runScheduledIngestion({
+      config,
+      runSource,
+      logger,
+      maxSourceRuns: 1,
+      now: () => new Date("2026-06-20T00:00:00.000Z"),
+      sleep: vi.fn(),
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      "ingestion scheduler source skipped: source=bitbank status=skipped_overlap message=bitbank ingestion skipped_overlap: another execution is already running",
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith("ingestion scheduler next run: source=bitbank at=2026-06-20T00:01:00.000Z");
+  });
+
   it("schedules the next run from completion time instead of start time", async () => {
     const runSource = vi.fn().mockResolvedValue({ status: "success", message: "ok" });
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
