@@ -4,6 +4,7 @@ node_modules
 dist
 coverage
 tmp
+secrets/
 docs
 tasks
 *.md
