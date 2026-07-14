@@ -3,12 +3,16 @@ import postgres from "postgres";
 import { env } from "../config/env.js";
 import * as schema from "./schema.js";
 
-export const createDbClient = (databaseUrl = env.DATABASE_URL) => {
+export const createPostgresClient = (databaseUrl = env.DATABASE_URL) => {
   if (databaseUrl === undefined || databaseUrl.trim() === "") {
     throw new Error("DATABASE_URL is not configured");
   }
 
-  const client = postgres(databaseUrl, { max: 1 });
+  return postgres(databaseUrl, { max: 1 });
+};
+
+export const createDbClient = (databaseUrl = env.DATABASE_URL) => {
+  const client = createPostgresClient(databaseUrl);
   const db = drizzle(client, { schema });
 
   return {
