@@ -65,6 +65,7 @@ export type ScopeObservationErrorMetadata = {
   normalized_error_code: string;
   retryable: boolean;
   category: SourceObservationError["category"];
+  request_timeout_ms?: number;
 };
 
 type DrizzleTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -124,6 +125,7 @@ const metadataFor = (error: SourceObservationError): ScopeObservationErrorMetada
     normalized_error_code: error.code,
     retryable: error.retryable,
     category: error.category,
+    ...(error.metadata.requestTimeoutMs === undefined ? {} : { request_timeout_ms: error.metadata.requestTimeoutMs }),
   };
 };
 
