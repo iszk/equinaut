@@ -53,6 +53,10 @@ const messageForMetadata = (metadata: BitflyerHttpErrorMetadata, zodError?: ZodE
     return "bitflyer request failed";
   }
 
+  if (metadata.normalizedErrorCode === "bitflyer_request_timeout") {
+    return "bitflyer request timed out";
+  }
+
   if (metadata.normalizedErrorCode === "bitflyer_non_json_response") {
     return "bitflyer API response was not JSON";
   }

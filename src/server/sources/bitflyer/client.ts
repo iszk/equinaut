@@ -1,5 +1,7 @@
 import { z } from "zod";
 import type { BitflyerCredentials } from "../../config/secrets.js";
+import { env } from "../../config/env.js";
+import { createRequestTimeout } from "../../http/request-timeout.js";
 import { createBitflyerAuthHeaders } from "./signing.js";
 import type { BitflyerAuthHeaders } from "./signing.js";
 import type {
@@ -82,6 +84,7 @@ export type BitflyerClientInput = {
   credentials: AvailableBitflyerCredentials;
   fetchFn?: FetchLike;
   timestamp?: () => string;
+  requestTimeoutMs?: number;
 };
 
 export class BitflyerHttpClientError extends Error {
@@ -106,6 +109,7 @@ const metadataFor = ({
   normalizedErrorCode,
   retryable,
   category,
+  requestTimeoutMs,
 }: {
   endpoint: BitflyerHttpEndpoint;
   httpStatus?: number;
@@ -113,6 +117,7 @@ const metadataFor = ({
   normalizedErrorCode: string;
   retryable: boolean;
   category: SourceObservationErrorCategory;
+  requestTimeoutMs?: number;
 }): BitflyerHttpErrorMetadata => ({
   endpoint,
   ...(httpStatus === undefined ? {} : { httpStatus }),
@@ -120,6 +125,7 @@ const metadataFor = ({
   normalizedErrorCode,
   retryable,
   category,
+  ...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
 });
 
 const parseBitflyerErrorStatus = (body: unknown): string | undefined => {
@@ -162,10 +168,25 @@ const fetchResponse = async (
   endpoint: BitflyerHttpEndpoint,
   input: string,
   init?: RequestInit,
+  requestTimeoutMs = env.INGESTION_HTTP_REQUEST_TIMEOUT_MS,
 ): Promise<Response> => {
+  const requestTimeout = createRequestTimeout(requestTimeoutMs);
   try {
-    return await fetchFn(input, init);
+    return await fetchFn(input, { ...init, signal: requestTimeout.signal });
   } catch {
+    if (requestTimeout.didTimeout()) {
+      throw new BitflyerHttpClientError(
+        "bitflyer request timed out",
+        metadataFor({
+          endpoint,
+          normalizedErrorCode: "bitflyer_request_timeout",
+          retryable: true,
+          category: "network",
+          requestTimeoutMs,
+        }),
+      );
+    }
+
     throw new BitflyerHttpClientError(
       "bitflyer request failed",
       metadataFor({
@@ -175,6 +196,8 @@ const fetchResponse = async (
         category: "network",
       }),
     );
+  } finally {
+    requestTimeout.cleanup();
   }
 };
 
@@ -289,6 +312,7 @@ export const createBitflyerHttpClient = ({
   credentials,
   fetchFn = fetch,
   timestamp = () => (Date.now() / 1000).toString(),
+  requestTimeoutMs = env.INGESTION_HTTP_REQUEST_TIMEOUT_MS,
 }: BitflyerClientInput): BitflyerHttpClient => ({
   async getBalance(): Promise<BitflyerBalance[]> {
     const requestPathWithQuery = "/v1/me/getbalance";
@@ -296,7 +320,7 @@ export const createBitflyerHttpClient = ({
     const response = await fetchResponse(fetchFn, endpoint, `https://api.bitflyer.com${requestPathWithQuery}`, {
       method: "GET",
       headers: authHeadersFor({ credentials, method: "GET", requestPathWithQuery, timestamp: timestamp() }),
-    });
+    }, requestTimeoutMs);
     return parseResponse(response, endpoint, balancesResponseSchema);
   },
 
@@ -306,7 +330,7 @@ export const createBitflyerHttpClient = ({
     const response = await fetchResponse(fetchFn, endpoint, `https://api.bitflyer.com${requestPathWithQuery}`, {
       method: "GET",
       headers: authHeadersFor({ credentials, method: "GET", requestPathWithQuery, timestamp: timestamp() }),
-    });
+    }, requestTimeoutMs);
     return parseResponse(response, endpoint, collateralSchema);
   },
 
@@ -316,7 +340,7 @@ export const createBitflyerHttpClient = ({
     const response = await fetchResponse(fetchFn, endpoint, `https://api.bitflyer.com${requestPathWithQuery}`, {
       method: "GET",
       headers: authHeadersFor({ credentials, method: "GET", requestPathWithQuery, timestamp: timestamp() }),
-    });
+    }, requestTimeoutMs);
     return parseResponse(response, endpoint, collateralAccountsResponseSchema);
   },
 
@@ -326,7 +350,7 @@ export const createBitflyerHttpClient = ({
     const response = await fetchResponse(fetchFn, endpoint, `https://api.bitflyer.com${requestPathWithQuery}`, {
       method: "GET",
       headers: authHeadersFor({ credentials, method: "GET", requestPathWithQuery, timestamp: timestamp() }),
-    });
+    }, requestTimeoutMs);
     return parseResponse(response, endpoint, positionsResponseSchema);
   },
 
@@ -335,7 +359,7 @@ export const createBitflyerHttpClient = ({
     const endpoint: BitflyerHttpEndpoint = "GET /v1/ticker";
     const response = await fetchResponse(fetchFn, endpoint, `https://api.bitflyer.com${requestPathWithQuery}`, {
       method: "GET",
-    });
+    }, requestTimeoutMs);
     return parseResponse(response, endpoint, tickerSchema);
   },
 });
