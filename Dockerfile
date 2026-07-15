@@ -6,11 +6,13 @@ COPY --chown=node:node package.json package-lock.json ./
 
 RUN chown node:node /app
 
+RUN /usr/bin/timeout --version >/dev/null
+
 USER node
 
-# db:migrate と tsx scheduler 実行に devDependencies が必要なため、runtime image にも含めます。
+# one-shot ingestion と migration service の実行に devDependencies が必要なため、runtime image にも含めます。
 RUN npm ci
 
 COPY --chown=node:node . .
 
-CMD ["sh", "-c", "npm run db:migrate && exec npm run ingest:scheduler -- --config config/ingestion.yaml"]
+CMD ["sleep", "infinity"]
