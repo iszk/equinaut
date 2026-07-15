@@ -11,6 +11,7 @@ DATABASE_URL=postgres://equinaut:***@localhost:5432/equinaut
 BITBANK_API_KEY=change-me
 BITBANK_API_SECRET=change-me
 BITBANK_ACCESS_TIME_WINDOW_MS=1000
+INGESTION_HTTP_REQUEST_TIMEOUT_MS=30000
 BITFLYER_API_KEY=change-me
 BITFLYER_API_SECRET=change-me
 SAXO_PORTFOLIO_API_URL=https://portfolio.example/saxo
@@ -24,6 +25,7 @@ DATABASE_URL=postgres://equinaut:***@postgres:5432/equinaut
 BITBANK_API_KEY_FILE=/run/secrets/bitbank_api_key
 BITBANK_API_SECRET_FILE=/run/secrets/bitbank_api_secret
 BITBANK_ACCESS_TIME_WINDOW_MS=1000
+INGESTION_HTTP_REQUEST_TIMEOUT_MS=30000
 BITFLYER_API_KEY_FILE=/run/secrets/bitflyer_api_key
 BITFLYER_API_SECRET_FILE=/run/secrets/bitflyer_api_secret
 SAXO_PORTFOLIO_API_URL=https://portfolio.example/saxo
@@ -37,6 +39,14 @@ SAXO_PORTFOLIO_API_SECRET_FILE=/run/secrets/saxo_portfolio_api_secret
 - `.env.local` は Git 管理対象外です。`.env` より先に読み込まれますが、すでに設定済みの process environment は上書きしません。
 - `BITBANK_API_KEY_FILE` / `BITBANK_API_SECRET_FILE` / `BITFLYER_API_KEY_FILE` / `BITFLYER_API_SECRET_FILE` が設定されている場合、application はまず file contents を読みます。file が空、または読めない場合のみ plain env value に fallback します。
 - `SAXO_PORTFOLIO_API_SECRET_FILE` が設定されている場合、application はまず file contents を読みます。file が空、または読めない場合のみ `SAXO_PORTFOLIO_API_SECRET` に fallback します。
+
+## HTTP request timeout
+
+`INGESTION_HTTP_REQUEST_TIMEOUT_MS` は bitbank、bitFlyer、portfolio snapshot の各 HTTP request に適用する application-level timeout です。未指定時は `30000` ms、設定可能な範囲は `1000` から `120000` ms で、decimal integer 以外の値は起動時に拒否します。timeout は request 単位の `AbortSignal` で upstream request を中断するため、bitFlyer の spot / CFD の各 scope や複数 endpoint をまとめて制限する batch timeout ではありません。
+
+timeout は source 固有の retryable な network failure として observation に保存されます。error code / message と metadata は sanitized で、URL、Authorization、credential、raw fetch rejection、abort reason、response body は保存・出力しません。今回 retry loop や backoff は追加していないため、失敗した source は既存の次回 cron slot または明示的な manual retry で再実行します。
+
+Compose worker はこの application default を利用し、今回 `compose.yml.sample` の env、Ofelia labels、schedule、command、worker 構成は変更していません。Ofelia の10分 command-level hard timeout は batch process 全体の最終 watchdog として残ります。hard timeout による process kill は通常の timeout observation の保存を保証しないため、個別 request timeout と同じものとして扱わないでください。
 
 ## database migration を適用する
 
@@ -287,7 +297,7 @@ docker logs --since 30m "${OFELIA_CONTAINER}"
 | worker停止 / 未登録 | `docker compose ps ingestion-worker`が非`Up`、またはOfelia logsにexec / discovery error | workerを復旧し、Ofeliaをrestartして3 jobのregistrationを再確認する |
 | `success` | CLI exit 0、Ofelia logsに成功message、DBの最新run / scopeが`success` | freshnessの時刻が進んだことを確認する |
 | `partial` / `failed` | CLI exit 1、Ofelia logsのsanitized error、DB status / error code | 原因を解消してmanual retryするか、次回cron slotを待つ |
-| hard timeout | 通常exit 124、30秒のkill grace超過時は137 | hung sourceを調査し、次回cronを監視する。個別HTTP request timeoutは別taskで扱う |
+| hard timeout | 通常exit 124、30秒のkill grace超過時は137 | 個別 request timeout の範囲外で残った hung source を調査し、DBに通常の timeout observation が保存されたとは仮定せず、次回cronを監視する |
 | Ofelia `no-overlap` | 同一jobの前回実行が継続中で、Ofeliaが次の起動をskip | 前回jobとtimeoutを確認し、次回cron slotを待つ |
 | application `skipped_overlap` | stderr warningだがexit 0。lock取得前なので新しいDB runは作られない | 競合中の同一source実行を確認し、次回のfreshness更新まで追跡する |
 | workerは`Up`だがdataがstale | DB freshnessが進まず、Ofelia logsに未登録 / failure / timeout / overlap | Ofelia registrationとjob logsを先に確認し、DB resultと突合する |
