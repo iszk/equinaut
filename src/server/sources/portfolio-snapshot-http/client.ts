@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { portfolioSnapshotV1Schema } from "../../../contracts/portfolio-snapshot/v1.js";
 import type { PortfolioSnapshotV1 } from "../../../contracts/portfolio-snapshot/v1.js";
+import { env } from "../../config/env.js";
+import { createRequestTimeout } from "../../http/request-timeout.js";
 import type {
   PortfolioSnapshotHttpClient,
   PortfolioSnapshotHttpEndpoint,
@@ -14,6 +16,7 @@ export type PortfolioSnapshotHttpClientInput = {
   url: string;
   bearerToken: string;
   fetchFn?: FetchLike;
+  requestTimeoutMs?: number;
 };
 
 export class PortfolioSnapshotHttpClientError extends Error {
@@ -45,12 +48,14 @@ const metadataFor = ({
   normalizedErrorCode,
   retryable,
   category,
+  requestTimeoutMs,
 }: {
   httpStatus?: number;
   rawErrorCode?: string;
   normalizedErrorCode: string;
   retryable: boolean;
   category: SourceObservationErrorCategory;
+  requestTimeoutMs?: number;
 }): PortfolioSnapshotHttpErrorMetadata => ({
   endpoint,
   ...(httpStatus === undefined ? {} : { httpStatus }),
@@ -58,6 +63,7 @@ const metadataFor = ({
   normalizedErrorCode,
   retryable,
   category,
+  ...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
 });
 
 const normalizeHttpErrorMetadata = (httpStatus: number): PortfolioSnapshotHttpErrorMetadata => {
@@ -78,10 +84,28 @@ const normalizeHttpErrorMetadata = (httpStatus: number): PortfolioSnapshotHttpEr
   });
 };
 
-const fetchResponse = async (fetchFn: FetchLike, input: string, init: RequestInit): Promise<Response> => {
+const fetchResponse = async (
+  fetchFn: FetchLike,
+  input: string,
+  init: RequestInit,
+  requestTimeoutMs = env.INGESTION_HTTP_REQUEST_TIMEOUT_MS,
+): Promise<Response> => {
+  const requestTimeout = createRequestTimeout(requestTimeoutMs);
   try {
-    return await fetchFn(input, init);
+    return await fetchFn(input, { ...init, signal: requestTimeout.signal });
   } catch {
+    if (requestTimeout.didTimeout()) {
+      throw new PortfolioSnapshotHttpClientError(
+        "portfolio snapshot request timed out",
+        metadataFor({
+          normalizedErrorCode: "portfolio_snapshot_request_timeout",
+          retryable: true,
+          category: "network",
+          requestTimeoutMs,
+        }),
+      );
+    }
+
     throw new PortfolioSnapshotHttpClientError(
       "portfolio snapshot request failed",
       metadataFor({
@@ -90,6 +114,8 @@ const fetchResponse = async (fetchFn: FetchLike, input: string, init: RequestIni
         category: "network",
       }),
     );
+  } finally {
+    requestTimeout.cleanup();
   }
 };
 
@@ -155,15 +181,21 @@ export const createPortfolioSnapshotHttpClient = ({
   url,
   bearerToken,
   fetchFn = fetch,
+  requestTimeoutMs = env.INGESTION_HTTP_REQUEST_TIMEOUT_MS,
 }: PortfolioSnapshotHttpClientInput): PortfolioSnapshotHttpClient => ({
   async getPortfolioSnapshot(): Promise<PortfolioSnapshotV1> {
-    const response = await fetchResponse(fetchFn, url, {
-      method: "GET",
-      headers: {
-        accept: "application/json",
-        authorization: `Bearer ${bearerToken}`,
+    const response = await fetchResponse(
+      fetchFn,
+      url,
+      {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${bearerToken}`,
+        },
       },
-    });
+      requestTimeoutMs,
+    );
 
     return parsePortfolioSnapshotResponse(response);
   },
