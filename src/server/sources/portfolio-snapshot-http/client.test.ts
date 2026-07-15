@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { portfolioSnapshotV1Example } from "../../../contracts/portfolio-snapshot/v1.js";
 import { PortfolioSnapshotHttpClientError, createPortfolioSnapshotHttpClient } from "./client.js";
 import type { FetchLike } from "./client.js";
@@ -10,6 +10,10 @@ const textResponse = (body: string, status = 200): Response =>
   new Response(body, { status, headers: { "content-type": "text/html" } });
 
 describe("createPortfolioSnapshotHttpClient", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("sends a Bearer GET request and parses portfolio-snapshot.v1 JSON", async () => {
     const fetchFn = vi.fn<FetchLike>(async () => jsonResponse(portfolioSnapshotV1Example));
     const client = createPortfolioSnapshotHttpClient({
