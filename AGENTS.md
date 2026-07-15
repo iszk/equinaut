@@ -26,17 +26,17 @@ type: document
 # 開発環境と実行方針 (Development Environment)
 - **開発時は Docker / Docker Compose を使わない**: 日常的な実装、テスト、typecheck、migration 生成、ingestion の動作確認は host の Node.js / npm scripts で行ってください。Docker は runtime image / Compose 構成そのものを変更・検証するときだけ対象にします。
 - **検証コマンドの基本**: TypeScript 変更では `npm run typecheck` と対象テスト、必要に応じて `npm test` を実行してください。Docker / Compose が利用できない環境では、それを理由に止めず、YAML lint や deterministic semantic check で変更意図を検証してください。
-- **database migration**: 通常の開発では `DATABASE_URL` を明示して `npm run db:migrate` を実行します。Docker Compose の scheduler は起動時 migration を行いますが、これは runtime 運用向けであり、開発時の基本手順ではありません。
+- **database migration**: 通常の開発では `DATABASE_URL` を明示して `npm run db:migrate` を実行します。runtime では ingestion worker を停止し、Docker Compose の one-shot `migration` service で明示的に適用します。worker 起動時や定期 job から migration を実行しません。
 - **integration test 用 DB**: DB integration test は `TEST_DATABASE_URL` のみを使い、実データ用の `DATABASE_URL` を使ってはいけません。各 test は独立 schema を作成し、終了時に cleanup してください。
 
 # プロジェクト固有の知見 (Project Knowledge)
 - 実データ投入は scraper / API による自動 ingestion のみを対象とします。CSV import や手動入力は fallback としても実装しません。
 - bitbank などの保有資産 mapping では、`quantity` が 0 の asset は enrichment / ticker 必須化の前に除外します。0 quantity の asset を dashboard / allocation に出さない方針です。
 - secret を含む可能性のある error / log message は必ず redaction してください。PostgreSQL URL、password / token / apiKey 系、Authorization / Cookie 系 header は unredacted で出力してはいけません。redaction logic は重複させず、共通 helper に集約してください。
-- ingestion scheduler の YAML config は strict に検証し、未知 top-level key を許可しません。`DATABASE_URL` や API key などの secret は YAML config に入れず、env または file-mounted secret で渡します。
-- scheduler は source ごとの失敗を process 全体に波及させず、次回 interval で再試行できるようにします。次回実行時刻は source 実行完了時刻を基準に計算します。
-- Dockerized scheduler は build 時に `npm ci` を実行し、起動時に install しません。runtime では source root を bind mount せず、`config/` など必要最小限の read-only mount に留めます。
-- Docker Compose の scheduler は 1 replica 前提です。複数 replica が必要になった場合は、起動時 migration を scheduler から分離して one-shot migration service などに移してください。
+- scheduled ingestion は shared Ofelia の `job-exec` labels を唯一の schedule source of truth とし、resident `ingestion-worker` 内で `npm run ingest -- <source>` を実行します。secret は labels に入れず、env または file-mounted secret で渡します。
+- bitbank / bitflyer / saxo は独立した Ofelia job です。source failure は他 source の job を止めず、失敗した source は次回 cron slot で再試行します。同一 job の重複は Ofelia `no-overlap`、同一 source 全体の重複は PostgreSQL advisory lock で防止します。
+- Dockerized worker は build 時に `npm ci` を実行し、起動時に install / migration を行いません。runtime では source root を bind mount せず、credentials は read-only secrets として渡します。
+- `ingestion-worker` は 1 replica 前提です。worker を create / recreate した後は shared Ofelia を restart し、`equinaut-*` jobs の再登録を確認してください。worker の `Up` は batch success を意味しないため、Ofelia logs と DB freshness を併用します。
 - Grafana / dashboard 向け DB view は `portfolio_latest_assets`, `portfolio_value_timeseries`, `portfolio_asset_allocation`, `portfolio_scope_freshness` です。`portfolio_latest_allocation` という view は存在しません。
 
 # コーディング規約 (Coding Standards)

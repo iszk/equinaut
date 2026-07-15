@@ -38,3 +38,7 @@ npm run ingest -- <bitbank|bitflyer|saxo>
 ```
 
 必要な credentials がない場合は sanitized configuration message を出力して non-zero exit します。同じ source が実行中の場合は `skipped_overlap` warning を出力し、API / persistence を実行せず exit code 0 で終了します。
+
+定期実行は host-wide shared Ofelia が `compose.yml.sample` の labels を読み取り、resident `ingestion-worker` 内で同じ one-shot entrypoint を `job-exec` します。schedule の source of truth はこの Ofelia labels だけです。
+
+`ingestion-worker` が `Up` であることは exec target の生存だけを示し、ingestion の成功は示しません。batch result は shared Ofelia logs と PostgreSQL の `ingestion_runs` / `scope_observations` / `portfolio_scope_freshness` で確認してください。worker recreate、Ofelia reload、migration、retry、rollback の手順は [docs/ingestion.md](docs/ingestion.md) を参照してください。
