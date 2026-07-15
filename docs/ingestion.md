@@ -114,59 +114,87 @@ bitbank ingestion skipped_overlap: another execution is already running
 
 result message と最外周 exception は共通 redaction helper を通してから出力します。PostgreSQL URL credential、password / token / API key / API secret、Authorization / Cookie header は未 redaction で出力しません。
 
-## scheduler で定期実行する
+## shared Ofelia で定期実行する
 
-scheduler は YAML 設定ファイルで enabled source と実行間隔を管理します。API key / API secret / `DATABASE_URL` などの secret は設定ファイルには入れず、`.env` または Docker secrets で設定してください。
+定期実行は host-wide shared Ofelia が `compose.yml.sample` の labels を読み取り、resident `ingestion-worker` に `job-exec` します。schedule の source of truth はこの labels だけです。shared Ofelia 自体は equinaut Compose に含めません。
+
+| job | schedule（6-field、秒から開始） | command |
+| --- | --- | --- |
+| `equinaut-bitbank-ingestion` | 毎時 0 / 15 / 30 / 45 分 | `npm run ingest -- bitbank` |
+| `equinaut-bitflyer-ingestion` | 毎時 5 / 20 / 35 / 50 分 | `npm run ingest -- bitflyer` |
+| `equinaut-saxo-ingestion` | 毎時 10 / 25 / 40 / 55 分 | `npm run ingest -- saxo` |
+
+各 command は `/usr/bin/timeout` により10分で `TERM` を受け、30秒の kill graceを超えると強制終了します。全jobに `no-overlap=true` を設定しています。Ofeliaの同一job名の重複に加えて、application boundaryのPostgreSQL advisory lockがmanual runや別job名を含む同一sourceの重複を防ぎます。
+
+shared Ofeliaは6-field cronとlabel discoveryに対応する`v0.3.22`を前提とします。Ofeliaをupgradeする場合は、cron field、`job-exec`、`no-overlap`、`--docker-filter`によるtarget discoveryを再検証してください。
+
+### Workerを作成または再作成する
+
+初回起動またはschema変更を含むdeployでは、先に[Migrationを適用する](#migrationを適用する)の停止・migration・起動sequenceを実施してください。schema変更を含まない通常のworker recreateは次の手順です。
 
 ```bash
-cp config/ingestion.example.yaml config/ingestion.yaml
-npm run ingest:scheduler -- --config config/ingestion.yaml
+docker compose build ingestion-worker
+docker compose up -d postgres ingestion-worker
+docker compose ps ingestion-worker
 ```
 
-Docker Compose で動かす場合は、`config/ingestion.yaml` を作成してから scheduler service を起動します。scheduler は Docker image として build され、image 起動時に `npm run db:migrate` を実行してから scheduler loop を開始します。source code 全体は bind mount せず、`config/` directory のみ read-only で mount します。
+`ingestion-worker`は`command: ["sleep", "infinity"]`のexec targetです。containerが`Up`であることはtarget processの生存だけを示し、各ingestion batchの成功を示しません。
+
+Ofeliaは起動時にtarget labelsを読み取るため、workerをcreate / recreateした後はshared Ofelia containerを必ずrestartします。次の変数にはlive環境の実container名を設定してください。
 
 ```bash
-docker compose build scheduler
-docker compose up -d postgres app scheduler
-docker compose logs -f scheduler
+OFELIA_CONTAINER="<shared-ofelia-container>"
+docker restart "${OFELIA_CONTAINER}"
+docker logs --since 5m "${OFELIA_CONTAINER}"
 ```
 
-設定例:
+startup logsで次の3 jobが登録され、discovery errorがないことを確認します。
 
-```yaml
-scheduler:
-  runOnStart: true
-  defaultIntervalSeconds: 900
-  minIntervalSeconds: 60
+- `equinaut-bitbank-ingestion`
+- `equinaut-bitflyer-ingestion`
+- `equinaut-saxo-ingestion`
 
-sources:
-  - id: bitbank
-    enabled: true
-    intervalSeconds: 900
-  - id: bitflyer
-    enabled: false
-    intervalSeconds: 900
-  - id: saxo
-    enabled: false
-    intervalSeconds: 900
-```
-
-- `runOnStart` が `true` の場合、起動直後に enabled source を一度実行します。
-- `intervalSeconds` を省略した source は `defaultIntervalSeconds` を使います。
-- 現在対応している source id は `bitbank` / `bitflyer` / `saxo` です。
-- scheduler と manual command は同じ source-level advisory lock を使います。重複時は source を skip し、次回 interval で再試行します。
-- source の実行に失敗しても scheduler process は継続し、次回 interval で再実行します。
-- Docker Compose の scheduler は 1 replica 前提です。複数 replica で同時起動すると、起動時 migration が競合する可能性があります。将来 scale する場合は migration 専用 service への分離を検討してください。
+単純なcontainer restartではなく、workerをcreate / recreateした場合にOfelia restartとregistration確認が必要です。labelsやimageを変更した場合はworkerがrecreateされるため、この手順を省略しないでください。
 
 ## 投入結果を確認する
 
-同じ `DATABASE_URL` の database に対して、read-only で次を確認します。
+同じ `DATABASE_URL` の database に対して、read-only で次を確認します。workerの`Up`やOfelia上のcommand終了だけでなく、DBへ期待したresultが記録されたことまで確認してください。
 
 ```sql
-select count(*) from source_accounts;
-select count(*) from observation_scopes;
-select count(*) from scope_observations;
-select count(*) from asset_snapshots;
+select
+  sa.source_id,
+  ir.status,
+  ir.started_at,
+  ir.finished_at,
+  ir.error_code
+from ingestion_runs ir
+join source_accounts sa on sa.id = ir.source_account_id
+order by ir.started_at desc
+limit 30;
+
+select
+  sa.source_id,
+  os.scope_id,
+  so.status,
+  so.observed_at,
+  so.error_code,
+  so.retryable
+from scope_observations so
+join observation_scopes os on os.id = so.observation_scope_id
+join source_accounts sa on sa.id = os.source_account_id
+where so.voided_at is null
+order by so.observed_at desc
+limit 30;
+
+select
+  source_id,
+  scope_id,
+  latest_observation_status,
+  latest_observed_at,
+  latest_success_observed_at,
+  uses_fallback
+from portfolio_scope_freshness
+order by latest_observed_at desc;
 ```
 
 Grafana 向け view:
@@ -211,14 +239,72 @@ order by latest_observed_at desc;
 
 CFD では notional / exposure を asset snapshot の `value_jpy` に保存しません。source price / source quantity / notional が必要な場合は `raw` に保持し、総資産に加算してよい評価額または評価損益コンポーネントだけを `asset_type = cfd` として保存します。
 
-## 運用手順
+## Cutover / migration / recovery runbook
 
-1. 最新 migration を含む code を deploy します。
-2. 対象環境に `DATABASE_URL` と有効化する source の credentials を設定します。
-3. Docker Compose の scheduler service では、起動時に `npm run db:migrate` が実行されます。手動運用の場合は scheduler / ingestion 起動前に `npm run db:migrate` を実行してください。
-4. 対象 source の ingestion を手動、または scheduler から実行します。
-5. dashboard views が rows を返すことを確認します。
-6. Grafana には同じ database を read-only role で参照させます。
+### Migrationを適用する
+
+runtimeのmigrationは定期jobやworker startupから実行せず、`migration` serviceを明示的に起動します。migrationとingestion persistenceの競合を避けるため、先にworkerを停止します。
+
+```bash
+docker compose stop ingestion-worker
+docker compose build ingestion-worker
+docker compose --profile tools run --rm migration
+docker compose up -d ingestion-worker
+docker compose ps ingestion-worker
+```
+
+migrationが失敗した場合はworkerを停止したまま原因を解消してください。推測によるdown migrationや、削除済みの旧定期実行経路の起動は行いません。worker停止中にcron slotを迎えた場合、Ofeliaのexec failureは保守時間帯のexpected eventとして記録し、復旧後のretryでfreshnessを確認します。
+
+workerを起動した後は[Workerを作成または再作成する](#workerを作成または再作成する)の手順どおりshared Ofeliaをrestartし、3 jobのregistrationを確認します。
+
+### Manual ingestionとretry
+
+deployment環境では、resident worker内でgeneric CLIを実行します。次はbitbankの例です。bitflyer / Saxoもsource引数だけを変更します。
+
+```bash
+docker compose exec -T ingestion-worker npm run ingest -- bitbank
+```
+
+Justfileを使う場合も同じentrypointを呼びます。
+
+```bash
+just ingest bitbank
+```
+
+失敗原因を解消してmanual retryした後は、commandのstdout / stderrとexit codeに加えて、上記SQLで新しい`ingestion_runs` / `scope_observations` / freshnessを確認します。manual retryを行わない場合、失敗したsourceは次の15分cron slotで再試行されます。3 sourceは独立したOfelia jobsのため、1 sourceの失敗は他sourceの実行や次回scheduleを止めません。
+
+### Job logsとresultを確認する
+
+`job-exec`したprocessのstdout / stderr、non-zero result、timeoutはshared OfeliaのDocker logsに出ます。`ingestion-worker`のmain processは`sleep infinity`なので、worker logsやcontainerの`Up`だけではbatch resultを判定できません。
+
+```bash
+OFELIA_CONTAINER="<shared-ofelia-container>"
+docker logs --since 30m "${OFELIA_CONTAINER}"
+```
+
+| 状態 | 確認方法 | 対応 |
+| --- | --- | --- |
+| worker停止 / 未登録 | `docker compose ps ingestion-worker`が非`Up`、またはOfelia logsにexec / discovery error | workerを復旧し、Ofeliaをrestartして3 jobのregistrationを再確認する |
+| `success` | CLI exit 0、Ofelia logsに成功message、DBの最新run / scopeが`success` | freshnessの時刻が進んだことを確認する |
+| `partial` / `failed` | CLI exit 1、Ofelia logsのsanitized error、DB status / error code | 原因を解消してmanual retryするか、次回cron slotを待つ |
+| hard timeout | 通常exit 124、30秒のkill grace超過時は137 | hung sourceを調査し、次回cronを監視する。個別HTTP request timeoutは別taskで扱う |
+| Ofelia `no-overlap` | 同一jobの前回実行が継続中で、Ofeliaが次の起動をskip | 前回jobとtimeoutを確認し、次回cron slotを待つ |
+| application `skipped_overlap` | stderr warningだがexit 0。lock取得前なので新しいDB runは作られない | 競合中の同一source実行を確認し、次回のfreshness更新まで追跡する |
+| workerは`Up`だがdataがstale | DB freshnessが進まず、Ofelia logsに未登録 / failure / timeout / overlap | Ofelia registrationとjob logsを先に確認し、DB resultと突合する |
+
+Ofeliaの`no-overlap`は同一job名だけを対象にします。PostgreSQL advisory lockはmanual commandや異なるjob名からの起動も含め、同じdatabase上の同一sourceを保護します。`skipped_overlap`は意図的にexit 0のため、Ofeliaのsuccess扱いだけで取得成功と判断しないでください。
+
+### Rollbackする
+
+schedule source of truthを二重化しないため、rollback先もgeneric CLI + Ofelia worker方式の直前のknown-good image / commit / labelsに限定します。
+
+1. `ingestion-worker`を停止します。
+2. 直前のknown-good image / Compose labelsへ戻してworkerをrecreateします。
+3. shared Ofeliaをrestartし、3 jobのregistrationを確認します。
+4. generic CLIでmanual ingestionを1 sourceずつ実行します。
+5. Ofelia logs、`ingestion_runs`、`scope_observations`、`portfolio_scope_freshness`を確認します。
+
+DB migration後に旧imageとのschema互換性が保証できない場合は、workerを停止したままDB backup restoreまたは互換性を回復するforward fixを選択します。自動down migrationは行いません。削除済みのTypeScript定期実行loop、YAML schedule、worker起動時migrationへは戻しません。
 
 ### 誤投入 observation を無効化する
 

@@ -9,11 +9,11 @@ setup:
 psql:
     @docker compose exec -it postgres sh -lc 'psql -U "${POSTGRES_USER:-equinaut}" -d "${POSTGRES_DB:-equinaut}"'
 
-# migrate:
-#     @docker compose exec scheduler npm run db:migrate
+migrate:
+    @docker compose --profile tools run --rm migration
 
-# bitbank:
-#     @docker compose exec scheduler npm run ingest:bitbank
+ingest source:
+    @docker compose exec -T ingestion-worker npm run ingest -- {{source}}
 
-scheduler-logs:
-    @docker compose logs -f scheduler
+worker-logs:
+    @docker compose logs -f ingestion-worker
