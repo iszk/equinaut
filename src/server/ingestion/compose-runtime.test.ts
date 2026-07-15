@@ -71,7 +71,7 @@ const expectedJobs = [
 describe("Compose runtime configuration", () => {
   it("excludes local secret files from Git and the Docker build context", () => {
     expect(nonEmptyLines(readProjectFile(".gitignore"))).toContain("secrets/");
-    expect(nonEmptyLines(readProjectFile(".dockerignore"))).toContain("secrets/");
+    expect(nonEmptyLines(readProjectFile(".dockerignore"))).toEqual(expect.arrayContaining(["secrets/", "obsidian/"]));
   });
 
   it("documents the file-mounted secret contract without secret values", () => {

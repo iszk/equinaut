@@ -5,6 +5,7 @@ dist
 coverage
 tmp
 secrets/
+obsidian/
 docs
 tasks
 *.md
