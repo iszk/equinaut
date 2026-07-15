@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { z } from "zod";
 
-const readProjectFile = (path: string): string => readFileSync(resolve(process.cwd(), path), "utf8");
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const readProjectFile = (path: string): string => readFileSync(resolve(projectRoot, path), "utf8");
 
 const nonEmptyLines = (value: string): string[] =>
   value
