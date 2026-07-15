@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { BitbankCredentials } from "../../config/secrets.js";
 import { env } from "../../config/env.js";
+import { createRequestTimeout } from "../../http/request-timeout.js";
 import { createBitbankAuthHeaders } from "./signing.js";
 import type {
   BitbankAssetsResponse,
@@ -70,6 +71,7 @@ export type BitbankClientInput = {
   fetchFn?: FetchLike;
   requestTime?: () => string;
   timeWindow?: string;
+  requestTimeoutMs?: number;
 };
 
 export class BitbankHttpClientError extends Error {
@@ -94,6 +96,7 @@ const metadataFor = ({
   normalizedErrorCode,
   retryable,
   category,
+  requestTimeoutMs,
 }: {
   endpoint: BitbankHttpEndpoint;
   httpStatus?: number;
@@ -101,6 +104,7 @@ const metadataFor = ({
   normalizedErrorCode: string;
   retryable: boolean;
   category: SourceObservationErrorCategory;
+  requestTimeoutMs?: number;
 }): BitbankHttpErrorMetadata => ({
   endpoint,
   ...(httpStatus === undefined ? {} : { httpStatus }),
@@ -108,6 +112,7 @@ const metadataFor = ({
   normalizedErrorCode,
   retryable,
   category,
+  ...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
 });
 
 const normalizeHttpErrorMetadata = (
@@ -176,10 +181,25 @@ const fetchResponse = async (
   endpoint: BitbankHttpEndpoint,
   input: string,
   init?: RequestInit,
+  requestTimeoutMs = env.INGESTION_HTTP_REQUEST_TIMEOUT_MS,
 ): Promise<Response> => {
+  const requestTimeout = createRequestTimeout(requestTimeoutMs);
   try {
-    return await fetchFn(input, init);
+    return await fetchFn(input, { ...init, signal: requestTimeout.signal });
   } catch {
+    if (requestTimeout.didTimeout()) {
+      throw new BitbankHttpClientError(
+        "bitbank request timed out",
+        metadataFor({
+          endpoint,
+          normalizedErrorCode: "bitbank_request_timeout",
+          retryable: true,
+          category: "network",
+          requestTimeoutMs,
+        }),
+      );
+    }
+
     throw new BitbankHttpClientError(
       "bitbank request failed",
       metadataFor({
@@ -189,6 +209,8 @@ const fetchResponse = async (
         category: "network",
       }),
     );
+  } finally {
+    requestTimeout.cleanup();
   }
 };
 
@@ -281,6 +303,7 @@ export const createBitbankHttpClient = ({
   fetchFn = fetch,
   requestTime = () => Date.now().toString(),
   timeWindow = env.BITBANK_ACCESS_TIME_WINDOW_MS.toString(),
+  requestTimeoutMs = env.INGESTION_HTTP_REQUEST_TIMEOUT_MS,
 }: BitbankClientInput): BitbankHttpClient => ({
   async getUserAssets(): Promise<BitbankAssetsResponse> {
     const requestPathWithQuery = "/v1/user/assets";
@@ -293,16 +316,25 @@ export const createBitbankHttpClient = ({
       timeWindow,
     });
 
-    const response = await fetchResponse(fetchFn, endpoint, `https://api.bitbank.cc${requestPathWithQuery}`, {
-      method: "GET",
-      headers,
-    });
+    const response = await fetchResponse(
+      fetchFn,
+      endpoint,
+      `https://api.bitbank.cc${requestPathWithQuery}`,
+      { method: "GET", headers },
+      requestTimeoutMs,
+    );
     return parseAssetsResponse(response, endpoint);
   },
 
   async getTickersJpy(): Promise<BitbankTickersJpyResponse> {
     const endpoint: BitbankHttpEndpoint = "GET /tickers_jpy";
-    const response = await fetchResponse(fetchFn, endpoint, "https://public.bitbank.cc/tickers_jpy", { method: "GET" });
+    const response = await fetchResponse(
+      fetchFn,
+      endpoint,
+      "https://public.bitbank.cc/tickers_jpy",
+      { method: "GET" },
+      requestTimeoutMs,
+    );
     return parseTickersJpyResponse(response, endpoint);
   },
 });

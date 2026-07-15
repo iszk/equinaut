@@ -156,6 +156,47 @@ describe("collectBitbankSpotAccount", () => {
     }
   });
 
+  it("normalizes request timeout as a sanitized retryable failure", async () => {
+    const client: BitbankHttpClient = {
+      async getUserAssets() {
+        throw new BitbankHttpClientError("raw timeout secret-token", {
+          endpoint: "GET /user/assets",
+          normalizedErrorCode: "bitbank_request_timeout",
+          retryable: true,
+          category: "network",
+          requestTimeoutMs: 1000,
+        });
+      },
+      async getTickersJpy() {
+        return { success: 1, data: {} };
+      },
+    };
+
+    const result = await collectBitbankSpotAccount({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      client,
+    });
+
+    expect(result).toMatchObject({
+      status: "failed",
+      error: {
+        code: "bitbank_request_timeout",
+        message: "bitbank request timed out",
+        retryable: true,
+        category: "network",
+        metadata: {
+          endpoint: "GET /user/assets",
+          normalizedErrorCode: "bitbank_request_timeout",
+          retryable: true,
+          category: "network",
+          requestTimeoutMs: 1000,
+        },
+      },
+      holdings: [],
+    });
+    expect(JSON.stringify(result)).not.toContain("secret-token");
+  });
+
   it("preserves HTTP error metadata from the client without raw response body", async () => {
     const client: BitbankHttpClient = {
       async getUserAssets() {

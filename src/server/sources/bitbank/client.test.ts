@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BitbankHttpClientError, createBitbankHttpClient } from "./client.js";
 import type { FetchLike } from "./client.js";
 
@@ -9,6 +9,93 @@ const textResponse = (body: string, status = 200): Response =>
   new Response(body, { status, headers: { "content-type": "text/html" } });
 
 describe("createBitbankHttpClient", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("passes a distinct timeout signal to private and public requests", async () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    const fetchFn: FetchLike = async (input, init) => {
+      signals.push(init?.signal ?? undefined);
+      return input.includes("user/assets")
+        ? jsonResponse({ success: 1, data: { assets: [] } })
+        : jsonResponse({ success: 1, data: [] });
+    };
+    const client = createBitbankHttpClient({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      fetchFn,
+      requestTimeoutMs: 1000,
+    });
+
+    await client.getUserAssets();
+    await client.getTickersJpy();
+
+    expect(signals).toHaveLength(2);
+    expect(signals[0]).toBeInstanceOf(AbortSignal);
+    expect(signals[1]).toBeInstanceOf(AbortSignal);
+    expect(signals[0]).not.toBe(signals[1]);
+  });
+
+  it("normalizes an aborted request as a retryable timeout without raw details", async () => {
+    vi.useFakeTimers();
+    const fetchFn: FetchLike = async (_input, init) => {
+      if (init?.signal === undefined) {
+        throw new Error("missing timeout signal");
+      }
+
+      return new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(new Error("raw fetch rejection secret-token")), {
+          once: true,
+        });
+      });
+    };
+    const client = createBitbankHttpClient({
+      credentials: { status: "available", apiKey: "api-key", apiSecret: "api-secret" },
+      fetchFn,
+      requestTimeoutMs: 1000,
+    });
+    const request = client.getTickersJpy();
+    const settledRequest = request.then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    const error = await settledRequest;
+    expect(error).toMatchObject({
+      message: "bitbank request timed out",
+      metadata: {
+        endpoint: "GET /tickers_jpy",
+        normalizedErrorCode: "bitbank_request_timeout",
+        retryable: true,
+        category: "network",
+        requestTimeoutMs: 1000,
+      },
+    });
+    expect(JSON.stringify(error)).not.toContain("secret-token");
+  });
+
+  it("keeps ordinary fetch rejection as a network error", async () => {
+    const fetchFn: FetchLike = async () => {
+      throw new Error("ordinary network failure secret-token");
+    };
+    const client = createBitbankHttpClient({
+      credentials: { status: "available", apiKey: "api-key", apiSecret: "api-secret" },
+      fetchFn,
+      requestTimeoutMs: 1000,
+    });
+
+    await expect(client.getTickersJpy()).rejects.toMatchObject({
+      message: "bitbank request failed",
+      metadata: {
+        normalizedErrorCode: "bitbank_network_error",
+        retryable: true,
+        category: "network",
+      },
+    });
+  });
+
   it("parses current tickers_jpy array responses into a pair-keyed record", async () => {
     const fetchFn: FetchLike = async () =>
       jsonResponse({

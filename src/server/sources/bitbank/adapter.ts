@@ -104,6 +104,10 @@ const messageForMetadata = (metadata: BitbankHttpErrorMetadata, zodError?: ZodEr
     return "bitbank request failed";
   }
 
+  if (metadata.normalizedErrorCode === "bitbank_request_timeout") {
+    return "bitbank request timed out";
+  }
+
   if (metadata.normalizedErrorCode === "bitbank_non_json_response") {
     return "bitbank API response was not JSON";
   }
