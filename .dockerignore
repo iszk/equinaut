@@ -14,3 +14,4 @@ AGENTS.md
 Justfile
 .env*
 !.env.example
+config/
