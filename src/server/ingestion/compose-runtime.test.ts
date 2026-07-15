@@ -103,8 +103,9 @@ describe("Compose runtime configuration", () => {
       command: ["sleep", "infinity"],
       init: true,
       depends_on: { postgres: { condition: "service_healthy" } },
-      secrets: expectedSecretNames,
+      secrets: expect.arrayContaining(expectedSecretNames),
     });
+    expect(worker.secrets).toHaveLength(expectedSecretNames.length);
     expect(worker.volumes).toBeUndefined();
   });
 
