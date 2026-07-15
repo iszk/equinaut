@@ -12,15 +12,13 @@
     "db:migrate": "drizzle-kit migrate",
     "ingest": "tsx scripts/ingest.ts",
     "ingest:bitbank": "tsx scripts/ingest.ts bitbank",
-    "ingest:saxo": "tsx scripts/ingest.ts saxo",
-    "ingest:scheduler": "tsx scripts/ingest-scheduler.ts"
+    "ingest:saxo": "tsx scripts/ingest.ts saxo"
   },
   "dependencies": {
     "decimal.js": "^10.4.3",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5",
-    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -30,6 +28,7 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^8.1.0",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "yaml": "^2.9.0"
   }
 }

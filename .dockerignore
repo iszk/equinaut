@@ -14,5 +14,3 @@ AGENTS.md
 Justfile
 .env*
 !.env.example
-config/*
-!config/ingestion.example.yaml
