@@ -181,6 +181,49 @@ describe("persistBitbankSpotObservation", () => {
       category: "api",
     });
   });
+
+  it("persists sanitized request timeout metadata without runtime secrets", async () => {
+    const { driver, scopeObservations } = createRecordingDriver();
+    const metadata = {
+      endpoint: "GET /user/assets",
+      normalizedErrorCode: "bitbank_request_timeout",
+      retryable: true,
+      category: "network" as const,
+      requestTimeoutMs: 30_000,
+      url: "https://api.bitbank.cc/v1/user/assets",
+      authorization: "Bearer secret-token",
+      rawError: "AbortError: secret response body",
+    };
+
+    await persistSourceObservation({
+      driver,
+      sourceId: "bitbank",
+      displayName: "bitbank",
+      observation: {
+        scopeId: "bitbank:spot_account",
+        observedAt,
+        status: "failed",
+        error: {
+          code: "bitbank_request_timeout",
+          message: "bitbank request timed out",
+          retryable: true,
+          category: "network",
+          metadata,
+        },
+        holdings: [],
+      },
+    });
+
+    expect(scopeObservations[0]?.metadata).toEqual({
+      endpoint: "GET /user/assets",
+      normalized_error_code: "bitbank_request_timeout",
+      retryable: true,
+      category: "network",
+      request_timeout_ms: 30_000,
+    });
+    expect(JSON.stringify(scopeObservations[0]?.metadata)).not.toContain("secret-token");
+    expect(JSON.stringify(scopeObservations[0]?.metadata)).not.toContain("api.bitbank.cc");
+  });
 });
 
 describe("persistSourceObservation", () => {

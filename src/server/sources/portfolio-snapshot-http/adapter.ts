@@ -40,6 +40,10 @@ const messageForMetadata = (metadata: PortfolioSnapshotHttpErrorMetadata, zodErr
     return "portfolio snapshot request failed";
   }
 
+  if (metadata.normalizedErrorCode === "portfolio_snapshot_request_timeout") {
+    return "portfolio snapshot request timed out";
+  }
+
   if (metadata.normalizedErrorCode === "portfolio_snapshot_non_json_response") {
     return "portfolio snapshot API response was not JSON";
   }

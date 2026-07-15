@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BitflyerHttpClientError, createBitflyerHttpClient } from "./client.js";
 import type { FetchLike } from "./client.js";
 
@@ -9,6 +9,93 @@ const textResponse = (body: string, status = 200): Response =>
   new Response(body, { status, headers: { "content-type": "text/html" } });
 
 describe("createBitflyerHttpClient", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("passes a distinct timeout signal to private and public requests", async () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    const fetchFn: FetchLike = async (input, init) => {
+      signals.push(init?.signal ?? undefined);
+      return input.includes("getbalance")
+        ? jsonResponse([{ currency_code: "JPY", amount: 1000, available: 1000 }])
+        : jsonResponse({ product_code: "BTC_JPY", timestamp: "2026-07-02T00:00:00.000", ltp: 10000000 });
+    };
+    const client = createBitflyerHttpClient({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      fetchFn,
+      requestTimeoutMs: 1000,
+    });
+
+    await client.getBalance();
+    await client.getTicker("BTC_JPY");
+
+    expect(signals).toHaveLength(2);
+    expect(signals[0]).toBeInstanceOf(AbortSignal);
+    expect(signals[1]).toBeInstanceOf(AbortSignal);
+    expect(signals[0]).not.toBe(signals[1]);
+  });
+
+  it("normalizes an aborted request as a retryable timeout without raw details", async () => {
+    vi.useFakeTimers();
+    const fetchFn: FetchLike = async (_input, init) => {
+      if (init?.signal === undefined) {
+        throw new Error("missing timeout signal");
+      }
+
+      return new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(new Error("raw fetch rejection secret-token")), {
+          once: true,
+        });
+      });
+    };
+    const client = createBitflyerHttpClient({
+      credentials: { status: "available", apiKey: "api-key", apiSecret: "api-secret" },
+      fetchFn,
+      requestTimeoutMs: 1000,
+    });
+    const request = client.getTicker("BTC_JPY");
+    const settledRequest = request.then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    const error = await settledRequest;
+    expect(error).toMatchObject({
+      message: "bitflyer request timed out",
+      metadata: {
+        endpoint: "GET /v1/ticker",
+        normalizedErrorCode: "bitflyer_request_timeout",
+        retryable: true,
+        category: "network",
+        requestTimeoutMs: 1000,
+      },
+    });
+    expect(JSON.stringify(error)).not.toContain("secret-token");
+  });
+
+  it("keeps ordinary fetch rejection as a network error", async () => {
+    const fetchFn: FetchLike = async () => {
+      throw new Error("ordinary network failure secret-token");
+    };
+    const client = createBitflyerHttpClient({
+      credentials: { status: "available", apiKey: "api-key", apiSecret: "api-secret" },
+      fetchFn,
+      requestTimeoutMs: 1000,
+    });
+
+    await expect(client.getBalance()).rejects.toMatchObject({
+      message: "bitflyer request failed",
+      metadata: {
+        normalizedErrorCode: "bitflyer_network_error",
+        retryable: true,
+        category: "network",
+      },
+    });
+  });
+
   it("signs private GET requests and parses balances", async () => {
     const seenHeaders: Headers[] = [];
     const fetchFn: FetchLike = async (_input, init) => {

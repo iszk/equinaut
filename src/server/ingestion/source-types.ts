@@ -8,6 +8,7 @@ export type SourceErrorMetadata = {
   normalizedErrorCode: string;
   retryable: boolean;
   category: SourceObservationErrorCategory;
+  requestTimeoutMs?: number;
 };
 
 export type SourceObservationError = {

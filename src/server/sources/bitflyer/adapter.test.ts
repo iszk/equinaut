@@ -74,6 +74,47 @@ describe("collectBitflyerAccounts", () => {
     expect(results[1]?.status).toBe("success");
   });
 
+  it("keeps a spot request timeout isolated from the CFD scope", async () => {
+    const client: BitflyerHttpClient = {
+      ...successfulClient,
+      async getBalance() {
+        throw new BitflyerHttpClientError("raw timeout secret-token", {
+          endpoint: "GET /v1/me/getbalance",
+          normalizedErrorCode: "bitflyer_request_timeout",
+          retryable: true,
+          category: "network",
+          requestTimeoutMs: 1000,
+        });
+      },
+    };
+
+    const results = await collectBitflyerAccounts({
+      credentials: { status: "available", apiKey: "key", apiSecret: "secret" },
+      client,
+      now: new Date("2026-07-02T00:00:00.000Z"),
+    });
+
+    expect(results[0]).toMatchObject({
+      scopeId: "bitflyer:spot_account",
+      status: "failed",
+      error: {
+        code: "bitflyer_request_timeout",
+        message: "bitflyer request timed out",
+        retryable: true,
+        category: "network",
+        metadata: {
+          endpoint: "GET /v1/me/getbalance",
+          normalizedErrorCode: "bitflyer_request_timeout",
+          retryable: true,
+          category: "network",
+          requestTimeoutMs: 1000,
+        },
+      },
+    });
+    expect(results[1]?.status).toBe("success");
+    expect(JSON.stringify(results)).not.toContain("secret-token");
+  });
+
   it("returns partial spot holdings when a ticker is unavailable with a non-retryable API error", async () => {
     const client: BitflyerHttpClient = {
       ...successfulClient,

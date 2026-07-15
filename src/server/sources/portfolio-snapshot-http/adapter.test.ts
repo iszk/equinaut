@@ -95,4 +95,42 @@ describe("collectPortfolioSnapshotHttpSource", () => {
       holdings: [],
     });
   });
+
+  it("normalizes request timeout as a sanitized retryable Saxo failure", async () => {
+    const result = await collectPortfolioSnapshotHttpSource({
+      sourceConfig,
+      client: {
+        async getPortfolioSnapshot() {
+          throw new PortfolioSnapshotHttpClientError("raw timeout bearer-secret", {
+            endpoint: "GET portfolio snapshot",
+            normalizedErrorCode: "portfolio_snapshot_request_timeout",
+            retryable: true,
+            category: "network",
+            requestTimeoutMs: 1000,
+          });
+        },
+      },
+      now: new Date("2026-07-09T00:00:00.000Z"),
+    });
+
+    expect(result).toMatchObject({
+      scopeId: "saxo:portfolio",
+      status: "failed",
+      error: {
+        code: "portfolio_snapshot_request_timeout",
+        message: "portfolio snapshot request timed out",
+        retryable: true,
+        category: "network",
+        metadata: {
+          endpoint: "GET portfolio snapshot",
+          normalizedErrorCode: "portfolio_snapshot_request_timeout",
+          retryable: true,
+          category: "network",
+          requestTimeoutMs: 1000,
+        },
+      },
+      holdings: [],
+    });
+    expect(JSON.stringify(result)).not.toContain("bearer-secret");
+  });
 });
